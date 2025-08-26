@@ -8,22 +8,24 @@ from geopy.extra.rate_limiter import RateLimiter
 st.set_page_config(page_title="RILSA map", layout="wide")
 st.title("RILSA map")
 
+# Autoriser uniquement les fichiers Excel
 uploaded_file = st.file_uploader("Téléversez un fichier Excel (.xlsx)", type=["xlsx"])
 
 df = None
 
 if uploaded_file is not None:
     try:
-        # Charger Excel (openpyxl requis) et ignorer les 4 premières lignes si besoin
+        # Charger la liste des feuilles Excel (openpyxl requis)
         xls = pd.ExcelFile(uploaded_file, engine="openpyxl")
         sheet = st.selectbox("Choisissez une feuille", xls.sheet_names, index=0)
 
-        skip_first_rows = st.checkbox("Ignorer les 4 premières lignes", value=False)
-        read_kwargs = {"engine": "openpyxl", "sheet_name": sheet}
-        if skip_first_rows:
-            read_kwargs["skiprows"] = 4
-
-        df = pd.read_excel(xls, **read_kwargs)
+        # Lire le fichier en ignorant les 4 premières lignes
+        df = pd.read_excel(
+            xls, 
+            sheet_name=sheet, 
+            engine="openpyxl", 
+            skiprows=4  # <<--- Ignore les 4 premières lignes
+        )
 
         st.success(f"Fichier chargé : {uploaded_file.name} / Feuille : {sheet}")
         st.dataframe(df, use_container_width=True)
