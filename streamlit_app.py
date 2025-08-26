@@ -13,3 +13,4 @@ if uploaded_file:
 
 # Display data in a table format
 st.table(df)
+st.write(df)
