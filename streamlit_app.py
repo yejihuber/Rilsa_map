@@ -10,3 +10,6 @@ uploaded_file = st.file_uploader("Upload a document", type=["csv", "xlsx"])
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
     st.dataframe(df)
+
+# Display data in a table format
+st.table(df)
