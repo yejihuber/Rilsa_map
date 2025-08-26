@@ -1,3 +1,4 @@
+from turtle import up
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -5,7 +6,7 @@ import numpy as np
 # title
 st.title("RILSA map")
 
-# File type csv and xlsx uploader
+# File type xlsx uploader
 uploaded_file = st.file_uploader("Upload a document", type=["xlsx"])
 if uploaded_file:
     df = pd.read_excel(uploaded_file)
