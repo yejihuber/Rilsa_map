@@ -30,6 +30,29 @@ if uploaded_file is not None:
         st.success(f"Fichier chargé : {uploaded_file.name} / Feuille : {sheet}")
         st.dataframe(df, use_container_width=True)
 
+        # 🔹 Créer une nouvelle colonne "Type" selon la valeur de "Référence"
+        def classify_type(ref):
+            try:
+                if 100000 <= ref <= 499000:
+                    return "Immeuble"
+                elif 500000 <= ref <= 599000:
+                    return "Lot"
+                elif 800000 <= ref <= 950000:
+                    return "PPE"
+                else:
+                    return "Autre"
+            except:
+                return "Inconnu"
+
+        if "Référence" in df.columns:
+            df["Type"] = df["Référence"].apply(classify_type)
+        else:
+            st.warning("⚠️ La colonne 'Référence' est absente du fichier, impossible de créer 'Type'.")
+
+        st.dataframe(df, use_container_width=True)
+
+        # ✅ (le reste de ton code géocodage + affichage carte vient ici, inchangé)
+
         # Vérifier les colonnes requises
         required_cols = ["Désignation", "NPA", "Lieu", "Canton"]
         missing = [c for c in required_cols if c not in df.columns]
