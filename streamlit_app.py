@@ -153,6 +153,12 @@ if uploaded_file is not None:
             df_filtered["Canton"].astype(str).str.strip() + ", Suisse"
         )
 
+                # 좌표 컬럼이 없으면 미리 생성
+        if "latitude" not in df_filtered.columns:
+            df_filtered["latitude"] = np.nan
+        if "longitude" not in df_filtered.columns:
+            df_filtered["longitude"] = np.nan
+
         # -------------------- (옵션) 좌표 CSV 업로드로 재사용 --------------------
         st.sidebar.markdown("### Recharger des coordonnées (CSV)")
         coords_file = st.sidebar.file_uploader(
