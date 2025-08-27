@@ -5,34 +5,24 @@ import requests
 import pydeck as pdk
 from streamlit.components.v1 import html as st_html
 
-def render_map_legend(keys, cmap, title="Légende"):
-    # 디버그: 키가 비면 안내 출력
+def render_table_legend(keys, cmap, title="Légende", cols_per_row=4):
+    """keys: 카테고리 리스트, cmap: {cat: [r,g,b]} 매핑"""
     if not keys:
-        st.info("ℹ️ Légende: aucune catégorie à afficher (liste vide).")
         return
-
-    items = "".join(
-        f'''
-        <div style="display:flex;align-items:center;gap:8px;margin:2px 0;">
-            <span style="width:14px;height:14px;display:inline-block;border-radius:3px;
-                         border:1px solid #0003;background:rgb({cmap[k][0]},{cmap[k][1]},{cmap[k][2]});"></span>
-            <span style="font-size:13px">{k}</span>
-        </div>
-        '''
-        for k in keys
-    )
-    html = f'''
-    <div style="
-        position:fixed; right:16px; top:100px; z-index:99999;
-        background:rgba(255,255,255,.95); padding:10px 12px;
-        border:1px solid #ddd; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.08);
-        max-height:60vh; overflow:auto; font-family:ui-sans-serif,system-ui,-apple-system;">
-        <div style="font-weight:600; margin-bottom:6px">{title}</div>
-        {items}
-    </div>
-    '''
-    # components.html로 주입하면 pydeck 위에 안정적으로 뜹니다.
-    st_html(html, height=0)  # height는 오버레이라 0~1이면 충분
+    st.markdown(f"#### {title} (tableau)")
+    cols = st.columns(min(cols_per_row, max(1, len(keys))))
+    for i, k in enumerate(keys):
+        with cols[i % len(cols)]:
+            st.markdown(
+                f'''
+                <div style="display:flex;align-items:center;gap:8px;margin:6px 0;">
+                    <span style="width:14px;height:14px;display:inline-block;border-radius:3px;
+                                 border:1px solid #0003;background:rgb({cmap[k][0]},{cmap[k][1]},{cmap[k][2]});"></span>
+                    <span style="font-size:13px">{k}</span>
+                </div>
+                ''',
+                unsafe_allow_html=True
+            )
 
 
 
@@ -265,26 +255,9 @@ if uploaded_file is not None:
             st.pydeck_chart(pdk.Deck(layers=[layer_now], initial_view_state=view_state_now,
                                      tooltip={"text": "{Gérant}\n{adresse}\n{Nombre total d'appartements}\n{Nombre total d'entreprises}\n{Propriétaire}"}))
             
-            # 색상 키/맵이 실제로 채워졌는지 확인
-            st.write("🔎 Legend debug:", {"count": len(keys_now) if 'keys_now' in locals() else 0})
-
-            legend_title = "Gérant group" if "Gérant group" in plotted_now.columns else "Gérant"
-            render_map_legend(keys_now, cmap_now, f"Légende — {legend_title}")
-
-            if keys_now:
-                st.markdown("#### Légende (tableau)")
-                cols = st.columns(min(4, max(1, len(keys_now))))
-                for i, k in enumerate(keys_now):
-                    with cols[i % len(cols)]:
-                        st.markdown(
-                            f'''
-                            <div style="display:flex;align-items:center;gap:8px;margin:6px 0;">
-                                <span style="width:14px;height:14px;display:inline-block;border-radius:3px;
-                                            border:1px solid #0003;background:rgb({cmap_now[k][0]},{cmap_now[k][1]},{cmap_now[k][2]});"></span>
-                                <span style="font-size:13px">{k}</span>
-                            </div>
-                            ''', unsafe_allow_html=True
-                        )
+            # 표 형태 레전드
+            legend_title_now = "Gérant group" if "Gérant group" in plotted_now.columns else "Gérant"
+            render_table_legend(keys_now, cmap_now, f"Légende — {legend_title_now}", cols_per_row=4)
 
         else:
             st.info("Aucune coordonnée existante — utilisez le géocodage pour compléter.")
@@ -344,6 +317,10 @@ if uploaded_file is not None:
             )
             st.pydeck_chart(pdk.Deck(layers=[layer2], initial_view_state=view_state2,
                                      tooltip={"text": "{Gérant}\n{adresse}\n{Nombre total d'appartements}\n{Nombre total d'entreprises}\n{Propriétaire}"}))
+
+            # 표 형태 레전드
+            legend_title_final = "Gérant group" if "Gérant group" in plotted_final.columns else "Gérant"
+            render_table_legend(keys_final, cmap_final, f"Légende — {legend_title_final}", cols_per_row=4)
 
             # 좌표 CSV 다운로드 (다음 실행에서 재사용)
             st.markdown("### Télécharger les coordonnées")
