@@ -51,32 +51,36 @@ if not api_key:
 uploaded_file = st.file_uploader("Téléversez un fichier Excel (.xlsx)", type=["xlsx"])
 
 # -------------------- 유틸 --------------------
-def multiselect_with_quick_actions(label: str, options: list, key: str, select_all_by_default: bool = True):
+def multiselect_with_select_all(label: str, options: list, key: str):
     """
-    Streamlit 멀티셀렉트에 '전체/해제/반전' 단축 버튼을 제공.
-    - label: 위젯 라벨
-    - options: 선택지 리스트 (정렬된 리스트 권장)
-    - key: 위젯 상태 키 (각 필터마다 고유 키 사용)
-    - select_all_by_default: 초기 렌더 시 전체 선택 여부
-    반환값: 선택된 리스트
+    멀티셀렉트 안에 'Tout' 항목을 넣어 전체 선택을 지원.
+    - UI에는 'Tout'가 첫 번째 옵션으로 보임.
+    - 반환값은 항상 '실제 옵션들'만 포함(= 'Tout' 제외).
     """
-    state_key = f"{key}_value"
-    if state_key not in st.session_state:
-        st.session_state[state_key] = options if select_all_by_default else []
+    ALL = "Tout"
+    opts = [ALL] + options
 
-    c1, c2, c3 = st.columns([1,1,1])
-    with c1:
-        if st.button("Tout", key=f"{key}_all"):
-            st.session_state[state_key] = options
-    with c2:
-        if st.button("Aucun", key=f"{key}_none"):
-            st.session_state[state_key] = []
-    with c3:
-        if st.button("Inverser", key=f"{key}_invert"):
-            cur = set(st.session_state.get(state_key, []))
-            st.session_state[state_key] = [o for o in options if o not in cur]
+    # 현재 선택(실제 옵션 기준)을 세션에 유지
+    selected_real = st.session_state.get(key, options)  # 처음엔 전체 선택
 
-    return st.multiselect(label, options=options, default=st.session_state[state_key], key=state_key)
+    # 위젯에 보여줄 기본 선택값: 전체면 'Tout'+전체, 아니면 실제 선택
+    if set(selected_real) == set(options):
+        default_widget = [ALL] + options
+    else:
+        default_widget = selected_real
+
+    sel = st.multiselect(label, options=opts, default=default_widget, key=f"{key}__widget")
+
+    # 사용자가 'Tout'를 포함해 선택했으면 전체로 간주
+    if ALL in sel:
+        chosen = options
+    else:
+        # 'Tout' 없이 실제 항목들만
+        chosen = [x for x in sel if x != ALL]
+
+    # 세션에 저장(다음 렌더 기본값으로 사용)
+    st.session_state[key] = chosen
+    return chosen
 
 # 고정 팔레트(전역)
 PALETTE = [
@@ -187,23 +191,22 @@ if uploaded_file is not None:
         # -------------------- Filtres --------------------
         st.sidebar.header("Filtres")
 
-        # Gérant
-        if "Gérant" in df.columns:
-            gerant_opts = sorted(df["Gérant"].dropna().astype(str).unique().tolist())
-            with st.sidebar:
-                gerant_sel = multiselect_with_quick_actions("Gérant", gerant_opts, key="gerant", select_all_by_default=True)
-        else:
-            gerant_sel = None
-            st.sidebar.info("Colonne 'Gérant' introuvable — filtre désactivé.")
+        with st.sidebar:
+            # Gérant
+            if "Gérant" in df.columns:
+                gerant_opts = sorted(df["Gérant"].dropna().astype(str).unique().tolist())
+                gerant_sel = multiselect_with_select_all("Gérant", gerant_opts, key="gerant")
+            else:
+                gerant_sel = None
+                st.info("Colonne 'Gérant' introuvable — filtre désactivé.")
 
-        # Type
-        if "Type" in df.columns:
-            type_opts = sorted(df["Type"].dropna().astype(str).unique().tolist())
-            with st.sidebar:
-                type_sel = multiselect_with_quick_actions("Type", type_opts, key="type", select_all_by_default=True)
-        else:
-            type_sel = None
-            st.sidebar.info("Colonne 'Type' introuvable — filtre désactivé.")
+            # Type
+            if "Type" in df.columns:
+                type_opts = sorted(df["Type"].dropna().astype(str).unique().tolist())
+                type_sel = multiselect_with_select_all("Type", type_opts, key="type")
+            else:
+                type_sel = None
+                st.info("Colonne 'Type' introuvable — filtre désactivé.")
 
         # 체이닝 필터(인덱스 문제 방지)
         df_filtered = df.copy()
