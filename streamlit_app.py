@@ -5,6 +5,20 @@ import requests
 import pydeck as pdk
 from streamlit.components.v1 import html as st_html
 
+# ── Tooltip HTML (Nom : Valeur)
+TOOLTIP_HTML = """
+<div style="font-family: ui-sans-serif,system-ui; font-size:12px; line-height:1.25;">
+  <div><b>Gérant :</b> {Gérant}</div>
+  <div><b>Gérant group :</b> {Gérant group}</div>
+  <div><b>Type :</b> {Type}</div>
+  <div><b>Adresse :</b> {adresse}</div>
+  <div><b>Nombre total d'appartements :</b> {Nombre total d'appartements}</div>
+  <div><b>Nombre total d'entreprises :</b> {Nombre total d'entreprises}</div>
+  <div><b>Propriétaire :</b> {Propriétaire}</div>
+</div>
+"""
+
+
 def render_table_legend(keys, cmap, title="Légende", cols_per_row=4):
     """keys: 카테고리 리스트, cmap: {cat: [r,g,b]} 매핑"""
     if not keys:
@@ -275,10 +289,18 @@ if uploaded_file is not None:
         plotted_final = df_filtered.dropna(subset=["latitude","longitude"]).copy()
         st.markdown("### Carte (mise à jour)")
         if not plotted_final.empty:
-            # 색상 기준 컬럼 결정
+            # 색상 키 결정 & 색상 적용
             color_key = "Gérant group" if "Gérant group" in plotted_final.columns else ("Gérant" if "Gérant" in plotted_final.columns else None)
-            # 색상 적용
             keys_final, cmap_final = assign_colors(plotted_final, color_key)
+
+            # (툴팁에 쓰는 필드 보정)
+            required_for_tooltip = [
+                "Gérant", "Gérant group", "Type", "adresse",
+                "Nombre total d'appartements", "Nombre total d'entreprises", "Propriétaire"
+            ]
+            for c in required_for_tooltip:
+                if c not in plotted_final.columns:
+                    plotted_final[c] = ""
 
             view_state2 = pdk.ViewState(
                 latitude=safe_mean(plotted_final["latitude"], 46.8182),
@@ -294,16 +316,21 @@ if uploaded_file is not None:
                 pickable=True,
             )
             st.pydeck_chart(pdk.Deck(
-                layers=[layer2], initial_view_state=view_state2,
-                tooltip={"text": "{Gérant}\n{adresse}\n{Nombre total d'appartements}\n{Nombre total d'entreprises}\n{Propriétaire}"}
+                layers=[layer2],
+                initial_view_state=view_state2,
+                tooltip={
+                    "html": TOOLTIP_HTML,
+                    "style": {"backgroundColor":"rgba(255,255,255,0.95)", "color":"black"}
+                }
             ))
 
             # 표 형태 레전드
             legend_title_final = color_key if color_key else "Catégorie"
             render_table_legend(keys_final, cmap_final, f"Légende — {legend_title_final}", cols_per_row=4)
 
-            # (이하 CSV 다운로드 유지)
+            # (CSV 다운로드 부분은 그대로 유지)
         else:
             st.info("Aucun point avec coordonnées pour l’instant. Lancez le géocodage Google ou vérifiez vos filtres.")
+            
     except Exception as e:
         st.error(f"Erreur : {e}")
