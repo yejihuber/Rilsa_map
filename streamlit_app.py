@@ -109,7 +109,7 @@ def classify_type_from_ref(ref):
     if 100000 <= ref <= 499000:
         return "Immeuble"
     elif 500000 <= ref <= 599000:
-        return "Lot"
+        return "Lot isolé"
     elif 800000 <= ref <= 950000:
         return "PPE"
     else:
