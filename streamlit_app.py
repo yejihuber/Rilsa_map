@@ -21,6 +21,10 @@ if uploaded_file is not None:
 
         df = pd.read_excel(xls, sheet_name=sheet, engine="openpyxl", skiprows=4)
 
+        # ✅ Supprimer les lignes avec Gérant = "REM4you (Support User)"
+        if "Gérant" in df.columns:
+            df = df[df["Gérant"] != "REM4you (Support User)"].copy()
+
         # Conversion de "Référence" et ajout "Type"
         if "Référence" in df.columns:
             df["Référence"] = pd.to_numeric(
@@ -43,11 +47,28 @@ if uploaded_file is not None:
 
             df["Type"] = df["Référence"].apply(classify_type)
 
+        # ✅ Nouveau: créer la colonne "Gérant group"
+        def compute_gerant_group(name):
+            if pd.isna(name):
+                return None
+            n = str(name).strip()
+            if n in {"NIGGLI Lucy", "BENISTANT Audrey"}:
+                return "Nyon"
+            if n in {"CURCHOD Merry", "DE PREUX Joanna"}:
+                return "Montreux"
+            return n  # les autres gardent la valeur d'origine
+
+        if "Gérant" in df.columns:
+            df["Gérant group"] = df["Gérant"].apply(compute_gerant_group)
+        else:
+            st.warning("⚠️ Colonne 'Gérant' introuvable — impossible de créer 'Gérant group'.")
+
         st.success(f"Fichier chargé : {uploaded_file.name} / Feuille : {sheet}")
 
         # -------------------- Filtres --------------------
         st.sidebar.header("Filtres")
 
+        # On garde les filtres existants
         gerant_selected = None
         if "Gérant" in df.columns:
             gerant_options = sorted(df["Gérant"].dropna().unique().tolist())
@@ -58,11 +79,19 @@ if uploaded_file is not None:
             type_options = sorted(df["Type"].dropna().unique().tolist())
             type_selected = st.sidebar.multiselect("Type", options=type_options, default=type_options)
 
+        # (Optionnel) Ajoute aussi un filtre par Gérant group
+        group_selected = None
+        if "Gérant group" in df.columns:
+            group_options = sorted(df["Gérant group"].dropna().unique().tolist())
+            group_selected = st.sidebar.multiselect("Gérant group", options=group_options, default=group_options)
+
         mask = pd.Series([True] * len(df))
         if gerant_selected is not None:
             mask &= df["Gérant"].isin(gerant_selected)
         if type_selected is not None:
             mask &= df["Type"].isin(type_selected)
+        if group_selected is not None:
+            mask &= df["Gérant group"].isin(group_selected)
 
         df_filtered = df[mask].copy()
 
@@ -102,9 +131,9 @@ if uploaded_file is not None:
 
             plotted = df_filtered.dropna(subset=["latitude", "longitude"]).copy()
 
-            st.markdown("### Carte (points colorés par Gérant)")
+            st.markdown("### Carte (points colorés par Gérant group)")
             if not plotted.empty:
-                # Palette fixe de couleurs (R, G, B)
+                # Palette fixe (R,G,B)
                 palette = [
                     [230, 25, 75],   # rouge
                     [60, 180, 75],   # vert
@@ -118,14 +147,16 @@ if uploaded_file is not None:
                     [170, 110, 40],  # marron
                 ]
 
-                if "Gérant" in plotted.columns:
-                    unique_gerants = sorted(plotted["Gérant"].unique().tolist())
-                    color_map = {g: palette[i % len(palette)] for i, g in enumerate(unique_gerants)}
-                    plotted["color"] = plotted["Gérant"].map(color_map)
+                # 🎨 Couleur par "Gérant group" (si absent, on retombe sur un bleu par défaut)
+                color_key = "Gérant group" if "Gérant group" in plotted.columns else ("Gérant" if "Gérant" in plotted.columns else None)
+                if color_key is not None:
+                    unique_keys = sorted(plotted[color_key].astype(str).unique().tolist())
+                    color_map = {g: palette[i % len(palette)] for i, g in enumerate(unique_keys)}
+                    plotted["color"] = plotted[color_key].astype(str).map(color_map)
                 else:
+                    unique_keys, color_map = [], {}
                     plotted["color"] = [[0, 0, 200]] * len(plotted)
 
-                # Pydeck Layer
                 layer = pdk.Layer(
                     "ScatterplotLayer",
                     data=plotted,
@@ -141,15 +172,24 @@ if uploaded_file is not None:
                     zoom=9
                 )
 
+                # 툴팁에 Gérant group 추가
                 st.pydeck_chart(
                     pdk.Deck(
                         layers=[layer],
                         initial_view_state=view_state,
-                        tooltip={"text": "{Gérant}\n{Type}\n{adresse}"}
+                        tooltip={"text": "{Gérant group}\n{Gérant}\n{Type}\n{adresse}"}
                     )
                 )
+
+                # (선택) 간단한 범례
+                if color_key is not None and unique_keys:
+                    st.markdown("**Légende ({} → Couleur)**".format(color_key))
+                    for g in unique_keys:
+                        st.write(f"- {g} : rgb{tuple(color_map[g])}")
+
             else:
                 st.info("Aucun point géocodé valide à afficher.")
 
     except Exception as e:
         st.error(f"Erreur : {e}")
+
