@@ -305,4 +305,3 @@ if uploaded_file is not None:
             # (이하 CSV 다운로드 유지)
         else:
             st.info("Aucun point avec coordonnées pour l’instant. Lancez le géocodage Google ou vérifiez vos filtres.")
-
