@@ -312,7 +312,7 @@ if uploaded_file is not None:
                 data=plotted_final,
                 get_position='[longitude, latitude]',
                 get_fill_color="color",
-                get_radius=100,
+                get_radius=200,
                 pickable=True,
             )
             st.pydeck_chart(pdk.Deck(
