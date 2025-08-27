@@ -64,7 +64,7 @@ def assign_colors(df_points, color_key, palette=PALETTE):
     반환: (keys(list), cmap(dict))  + df_points['color'] 컬럼 채움(제자리 수정)
     """
     if (not color_key) or (color_key not in df_points.columns):
-        df_points["color"] = [[0, 0, 200]] * len(df_points)
+        df_points["color"] = [[0, 0, 200, 120]] * len(df_points)
         return [], {}
     keys = sorted(df_points[color_key].astype(str).unique().tolist())
     cmap = {k: palette[i % len(palette)] for i, k in enumerate(keys)}
