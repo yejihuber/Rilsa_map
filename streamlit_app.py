@@ -29,7 +29,7 @@ if uploaded_file is not None:
 
         if "Référence" in df.columns:
             # 강제로 숫자 변환 (문자/NaN → NaN)
-            df["Référence_num"] = pd.to_numeric(df["Référence"], errors="coerce")
+            df["Référence"] = pd.to_numeric(df["Référence"], errors="coerce")
 
             def classify_type(ref):
                 if pd.isna(ref):
@@ -43,7 +43,7 @@ if uploaded_file is not None:
                 else:
                     return "Autre"
 
-            df["Type"] = df["Référence_num"].apply(classify_type)
+            df["Type"] = df["Référence"].apply(classify_type)
         else:
             st.warning("⚠️ La colonne 'Référence' est absente du fichier, impossible de créer 'Type'.")
         
