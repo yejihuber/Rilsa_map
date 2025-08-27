@@ -80,20 +80,12 @@ if uploaded_file is not None:
             type_options = sorted(df["Type"].dropna().unique().tolist())
             type_selected = st.sidebar.multiselect("Type", options=type_options, default=type_options)
 
-        # (Optionnel) Ajoute aussi un filtre par Gérant group
-        group_selected = None
-        if "Gérant group" in df.columns:
-            group_options = sorted(df["Gérant group"].dropna().unique().tolist())
-            group_selected = st.sidebar.multiselect("Gérant group", options=group_options, default=group_options)
-
         mask = pd.Series([True] * len(df))
         if gerant_selected is not None:
             mask &= df["Gérant"].isin(gerant_selected)
         if type_selected is not None:
             mask &= df["Type"].isin(type_selected)
-        if group_selected is not None:
-            mask &= df["Gérant group"].isin(group_selected)
-
+        
         df_filtered = df[mask].copy()
 
         st.subheader("Tableau filtré")
