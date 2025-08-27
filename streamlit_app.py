@@ -23,7 +23,8 @@ if uploaded_file is not None:
 
         # ✅ Supprimer les lignes avec Gérant = "REM4you (Support User)"
         if "Gérant" in df.columns:
-            df = df[df["Gérant"] != "REM4you (Support User) "].copy()
+            df = df[df["Gérant"] != "REM4you (Support User)"].reset_index(drop=True)
+            mask = pd.Series(True, index=df.index)   # df와 같은 인덱스로 생성
 
         # Conversion de "Référence" et ajout "Type"
         if "Référence" in df.columns:
