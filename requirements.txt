@@ -3,3 +3,4 @@ openai
 openpyxl
 pandas
 geopy
+pydeck
