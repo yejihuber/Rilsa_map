@@ -312,7 +312,7 @@ if uploaded_file is not None:
                 data=plotted_final,
                 get_position='[longitude, latitude]',
                 get_fill_color="color",
-                get_radius=60,
+                get_radius=40,
                 pickable=True,
             )
             st.pydeck_chart(pdk.Deck(
@@ -331,6 +331,6 @@ if uploaded_file is not None:
             # (CSV 다운로드 부분은 그대로 유지)
         else:
             st.info("Aucun point avec coordonnées pour l’instant. Lancez le géocodage Google ou vérifiez vos filtres.")
-            
+
     except Exception as e:
         st.error(f"Erreur : {e}")
