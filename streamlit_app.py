@@ -4,6 +4,17 @@ import numpy as np
 import requests
 import pydeck as pdk
 from streamlit.components.v1 import html as st_html
+import io
+
+# 🔒 CSV des coordonnées embarqué dans le code
+# IMPORTANT: colonnes exactement: adresse,latitude,longitude
+EMBEDDED_COORDS_CSV = "rilsa_coords.csv"
+
+def load_embedded_coords() -> pd.DataFrame:
+    if not EMBEDDED_COORDS_CSV.strip():
+        return pd.DataFrame(columns=["adresse","latitude","longitude"])
+    return pd.read_csv(io.StringIO(EMBEDDED_COORDS_CSV))
+
 
 # ── Tooltip HTML (Nom : Valeur)
 TOOLTIP_HTML = """
@@ -109,7 +120,7 @@ def classify_type_from_ref(ref):
     if 100000 <= ref <= 499000:
         return "Immeuble"
     elif 500000 <= ref <= 599000:
-        return "Lot"
+        return "Lot isolé"
     elif 800000 <= ref <= 950000:
         return "PPE"
     else:
