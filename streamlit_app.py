@@ -24,17 +24,18 @@ if uploaded_file is not None:
             xls, 
             sheet_name=sheet, 
             engine="openpyxl", 
-            skiprows=4  # <<--- Ignore les 4 premières lignes
+            skiprows=4
         )
 
+        # --- Créer "Type" à partir de "Référence" (colonne convertie en numérique) ---
         if "Référence" in df.columns:
-            # 강제로 숫자 변환 (문자/NaN → NaN)
             df["Référence"] = pd.to_numeric(df["Référence"], errors="coerce")
 
             def classify_type(ref):
                 if pd.isna(ref):
                     return "Inconnu"
-                elif 100000 <= ref <= 499000:
+                ref = int(ref)
+                if 100000 <= ref <= 499000:
                     return "Immeuble"
                 elif 500000 <= ref <= 599000:
                     return "Lot"
@@ -46,24 +47,63 @@ if uploaded_file is not None:
             df["Type"] = df["Référence"].apply(classify_type)
         else:
             st.warning("⚠️ La colonne 'Référence' est absente du fichier, impossible de créer 'Type'.")
-        
+
         st.success(f"Fichier chargé : {uploaded_file.name} / Feuille : {sheet}")
-        st.dataframe(df, use_container_width=True)
 
-        # ✅ (le reste de ton code géocodage + affichage carte vient ici, inchangé)
+        # -------------------- Filtres (barre latérale) --------------------
+        st.sidebar.header("Filtres")
 
-        # Vérifier les colonnes requises
+        # Filtre Gérant (si présent)
+        gerant_selected = None
+        if "Gérant" in df.columns:
+            gerant_options = sorted([g for g in df["Gérant"].dropna().unique().tolist()])
+            gerant_selected = st.sidebar.multiselect(
+                "Gérant",
+                options=gerant_options,
+                default=gerant_options
+            )
+        else:
+            st.sidebar.info("Colonne 'Gérant' introuvable — filtre désactivé.")
+
+        # Filtre Type (si présent)
+        type_selected = None
+        if "Type" in df.columns:
+            type_options = sorted([t for t in df["Type"].dropna().unique().tolist()])
+            type_selected = st.sidebar.multiselect(
+                "Type",
+                options=type_options,
+                default=type_options
+            )
+        else:
+            st.sidebar.info("Colonne 'Type' introuvable — filtre désactivé.")
+
+        # Construire le masque de filtre
+        mask = pd.Series([True] * len(df))
+        if gerant_selected is not None:
+            mask &= df["Gérant"].isin(gerant_selected)
+        if type_selected is not None:
+            mask &= df["Type"].isin(type_selected)
+
+        df_filtered = df[mask].copy()
+
+        # Afficher les données filtrées (avant géocodage)
+        st.subheader("Tableau (filtré)")
+        st.dataframe(df_filtered, use_container_width=True)
+
+        # -------------------- Adresse & Géocodage (sur les lignes filtrées) --------------------
         required_cols = ["Désignation", "NPA", "Lieu", "Canton"]
-        missing = [c for c in required_cols if c not in df.columns]
+        missing = [c for c in required_cols if c not in df_filtered.columns]
         if missing:
             st.error(f"Colonnes manquantes pour construire l'adresse : {', '.join(missing)}")
+        elif df_filtered.empty:
+            st.info("Aucune ligne après filtrage.")
         else:
-            # Construire l'adresse (ajout de 'Suisse' pour améliorer la précision)
-            df["adresse"] = (
-                df["Désignation"].astype(str).str.strip() + ", " +
-                df["NPA"].astype(str).str.strip() + " " +
-                df["Lieu"].astype(str).str.strip() + ", " +
-                df["Canton"].astype(str).str.strip() + ", Suisse"
+            # Construire l'adresse (ajout 'Suisse' pour la précision)
+            df_filtered["adresse"] = (
+                df_filtered["Désignation"].astype(str).str.strip() + ", " +
+                df_filtered["NPA"].astype(str).str.strip() + " " +
+                df_filtered["Lieu"].astype(str).str.strip() + ", " +
+                df_filtered["Canton"].astype(str).str.strip() + ", Suisse"
             )
 
             # Géocoder avec cache et respect du rate-limit
@@ -84,33 +124,33 @@ if uploaded_file is not None:
                     progress.progress(i / total)
                 return results
 
-            st.subheader("Géocodage des adresses")
-            uniq = df["adresse"].dropna().unique().tolist()
+            st.subheader("Géocodage des adresses (sur les données filtrées)")
+            uniq = df_filtered["adresse"].dropna().unique().tolist()
             st.write(f"{len(uniq)} adresses uniques à géocoder…")
             mapping = geocode_addresses(tuple(uniq))  # tuple pour la clé du cache
 
-            df["latitude"]  = df["adresse"].map(lambda a: mapping.get(a, (None, None))[0])
-            df["longitude"] = df["adresse"].map(lambda a: mapping.get(a, (None, None))[1])
+            df_filtered["latitude"]  = df_filtered["adresse"].map(lambda a: mapping.get(a, (None, None))[0])
+            df_filtered["longitude"] = df_filtered["adresse"].map(lambda a: mapping.get(a, (None, None))[1])
 
-            # Filtrer les points géocodés
-            plotted = df.dropna(subset=["latitude", "longitude"]).copy()
+            # Filtrer les points géocodés valides
+            plotted = df_filtered.dropna(subset=["latitude", "longitude"]).copy()
 
-            st.markdown("### Résultats du géocodage")
-            st.write(f"Points géocodés : {len(plotted)} / {len(df)}")
-            st.dataframe(plotted[required_cols + ["adresse", "latitude", "longitude"]], use_container_width=True)
+            st.markdown("### Résultats du géocodage (filtré)")
+            st.write(f"Points géocodés : {len(plotted)} / {len(df_filtered)}")
+            cols_to_show = [c for c in required_cols + ["Gérant", "Type", "adresse", "latitude", "longitude"] if c in df_filtered.columns]
+            st.dataframe(plotted[cols_to_show], use_container_width=True)
 
-            # Afficher la carte (utilise automatiquement latitude/longitude)
-            st.markdown("### Carte")
+            # Afficher la carte (uniquement les points filtrés)
+            st.markdown("### Carte (filtrée)")
             if not plotted.empty:
                 st.map(plotted.rename(columns={"latitude": "lat", "longitude": "lon"})[["lat", "lon"]])
             else:
-                st.info("Aucun point géocodé valide à afficher pour le moment.")
+                st.info("Aucun point géocodé valide à afficher pour les filtres actuels.")
 
     except ImportError:
         st.error(
-            "Le module `openpyxl` est requis pour lire les fichiers `.xlsx`.\n"
-            "Installez-le avec `pip install openpyxl` ou ajoutez-le à `requirements.txt`."
+            "Les modules requis manquent. Installez-les :\n"
+            "`pip install openpyxl geopy` ou ajoutez-les à `requirements.txt`."
         )
     except Exception as e:
         st.error(f"Erreur lors du chargement ou du traitement : {e}")
-
