@@ -246,22 +246,54 @@ if uploaded_file is not None:
             df_filtered["Canton"].astype(str).str.strip() + ", Suisse"
         )
 
-        # S'assurer que les colonnes lat/lon existent
-        if "latitude" not in df_filtered.columns:  df_filtered["latitude"] = np.nan
-        if "longitude" not in df_filtered.columns: df_filtered["longitude"] = np.nan
+                # 좌표 컬럼이 없으면 미리 생성
+        if "latitude" not in df_filtered.columns:
+            df_filtered["latitude"] = np.nan
+        if "longitude" not in df_filtered.columns:
+            df_filtered["longitude"] = np.nan
 
-        # Charger et fusionner le CSV embarqué par adresse
-        coords_df = load_embedded_coords()
-        if {"adresse","latitude","longitude"}.issubset(coords_df.columns):
-            df_filtered = df_filtered.merge(
-                coords_df[["adresse","latitude","longitude"]],
-                on="adresse", how="left", suffixes=("", "_embed")
-            )
-            # Ne remplir que les valeurs manquantes
-            if "latitude_embed" in df_filtered.columns and "longitude_embed" in df_filtered.columns:
-                df_filtered["latitude"]  = df_filtered["latitude"].fillna(df_filtered["latitude_embed"])
-                df_filtered["longitude"] = df_filtered["longitude"].fillna(df_filtered["longitude_embed"])
-                df_filtered.drop(columns=["latitude_embed","longitude_embed"], inplace=True)
+        # -------------------- (옵션) 좌표 CSV 업로드로 재사용 --------------------
+        st.sidebar.markdown("### Recharger des coordonnées (CSV)")
+        coords_file = st.sidebar.file_uploader(
+            "CSV avec 'adresse,latitude,longitude' ou 'Référence,latitude,longitude'",
+            type=["csv"], key="coords_csv"
+        )
+        if coords_file is not None:
+            try:
+                coords_df = pd.read_csv(coords_file)
+                merged = False
+                # 1순위: adresse 기준
+                if {"adresse","latitude","longitude"}.issubset(coords_df.columns):
+                    df_filtered = df_filtered.merge(
+                        coords_df[["adresse","latitude","longitude"]],
+                        on="adresse", how="left", suffixes=("", "_cache")
+                    )
+                    if "latitude_cache" in df_filtered.columns and "longitude_cache" in df_filtered.columns:
+                        df_filtered["latitude"]  = df_filtered.get("latitude")
+                        df_filtered["longitude"] = df_filtered.get("longitude")
+                        df_filtered["latitude"]  = df_filtered["latitude"].fillna(df_filtered["latitude_cache"])
+                        df_filtered["longitude"] = df_filtered["longitude"].fillna(df_filtered["longitude_cache"])
+                        df_filtered.drop(columns=[c for c in ["latitude_cache","longitude_cache"] if c in df_filtered.columns], inplace=True)
+                    merged = True
+                # 2순위: Référence 기준
+                if (not merged) and {"Référence","latitude","longitude"}.issubset(coords_df.columns) and "Référence" in df_filtered.columns:
+                    df_filtered = df_filtered.merge(
+                        coords_df[["Référence","latitude","longitude"]],
+                        on="Référence", how="left", suffixes=("", "_cache")
+                    )
+                    if "latitude_cache" in df_filtered.columns and "longitude_cache" in df_filtered.columns:
+                        df_filtered["latitude"]  = df_filtered.get("latitude")
+                        df_filtered["longitude"] = df_filtered.get("longitude")
+                        df_filtered["latitude"]  = df_filtered["latitude"].fillna(df_filtered["latitude_cache"])
+                        df_filtered["longitude"] = df_filtered["longitude"].fillna(df_filtered["longitude_cache"])
+                        df_filtered.drop(columns=[c for c in ["latitude_cache","longitude_cache"] if c in df_filtered.columns], inplace=True)
+                    merged = True
+                if merged:
+                    st.success("Coordonnées rechargées depuis le CSV. Les lignes manquantes seulement seront géocodées.")
+                else:
+                    st.sidebar.warning("CSV에 'adresse,latitude,longitude' 또는 'Référence,latitude,longitude' 컬럼이 필요합니다.")
+            except Exception as e:
+                st.sidebar.error(f"좌표 CSV 로드 오류: {e}")
 
         # -------------------- Google 지오코딩 (버튼 + 제한) --------------------
         st.subheader("Géocodage Google Maps")
