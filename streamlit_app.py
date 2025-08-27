@@ -23,7 +23,7 @@ if uploaded_file is not None:
 
         # ✅ Supprimer les lignes avec Gérant = "REM4you (Support User)"
         if "Gérant" in df.columns:
-            df = df[df["Gérant"] != "REM4you (Support User)"].copy()
+            df = df[df["Gérant"] != "REM4you (Support User) "].copy()
 
         # Conversion de "Référence" et ajout "Type"
         if "Référence" in df.columns:
