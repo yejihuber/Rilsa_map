@@ -4,6 +4,32 @@ import numpy as np
 import requests
 import pydeck as pdk
 
+def render_map_legend(keys, cmap, title="Légende"):
+    if not keys:
+        return
+    items = "".join(
+        f'''
+        <div style="display:flex;align-items:center;gap:8px;margin:2px 0;">
+            <span style="width:14px;height:14px;display:inline-block;border-radius:3px;
+                         border:1px solid #0003;background:rgb({cmap[k][0]},{cmap[k][1]},{cmap[k][2]});"></span>
+            <span style="font-size:13px">{k}</span>
+        </div>
+        '''
+        for k in keys
+    )
+    html = f'''
+        <div style="
+            position:fixed; right:16px; top:100px; z-index:1000;
+            background:rgba(255,255,255,.92); padding:10px 12px;
+            border:1px solid #ddd; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.08);
+            max-height:60vh; overflow:auto;">
+            <div style="font-weight:600; margin-bottom:6px">{title}</div>
+            {items}
+        </div>
+    '''
+    st.markdown(html, unsafe_allow_html=True)
+
+
 st.set_page_config(page_title="RILSA map", layout="wide")
 st.title("RILSA map")
 
@@ -118,21 +144,13 @@ if uploaded_file is not None:
             type_sel = None
             st.sidebar.info("Colonne 'Type' introuvable — filtre désactivé.")
 
-        if "Gérant group" in df.columns:
-            group_opts = sorted(df["Gérant group"].dropna().astype(str).unique().tolist())
-            group_sel = st.sidebar.multiselect("Gérant group", group_opts, default=group_opts)
-        else:
-            group_sel = None
-
         # 체이닝 필터(인덱스 문제 방지)
         df_filtered = df.copy()
         if gerant_sel is not None:
             df_filtered = df_filtered[df_filtered["Gérant"].astype(str).isin(gerant_sel)]
         if type_sel is not None and "Type" in df_filtered.columns:
             df_filtered = df_filtered[df_filtered["Type"].astype(str).isin(type_sel)]
-        if group_sel is not None and "Gérant group" in df_filtered.columns:
-            df_filtered = df_filtered[df_filtered["Gérant group"].astype(str).isin(group_sel)]
-
+        
         st.subheader("Tableau filtré")
         st.dataframe(df_filtered, use_container_width=True)
 
@@ -239,9 +257,14 @@ if uploaded_file is not None:
                 pickable=True,
             )
             st.pydeck_chart(pdk.Deck(layers=[layer_now], initial_view_state=view_state_now,
-                                     tooltip={"text": "{Gérant group}\n{Gérant}\n{Type}\n{adresse}"}))
+                                     tooltip={"text": "{Gérant}\n{adresse}\n{Nombre total d'appartements}\n{Nombre total d'entreprises}\n{Propriétaire}"}))
+            
+            # 여기서 legend 표시
+            legend_title = "Gérant group" if "Gérant group" in plotted_now.columns else "Gérant"
+            render_map_legend(keys_now, cmap_now, f"Légende — {legend_title}")
+
         else:
-            st.info("Aucune coordonnée existante — utilisez le géocodage pour compléter ou CSV 재사용을 업로드하세요.")
+            st.info("Aucune coordonnée existante — utilisez le géocodage pour compléter.")
 
         # -------------------- Google 지오코딩 (버튼 + 제한) --------------------
         st.subheader("Géocodage Google Maps")
@@ -297,7 +320,7 @@ if uploaded_file is not None:
                 pickable=True,
             )
             st.pydeck_chart(pdk.Deck(layers=[layer2], initial_view_state=view_state2,
-                                     tooltip={"text": "{Gérant group}\n{Gérant}\n{Type}\n{adresse}"}))
+                                     tooltip={"text": "{Gérant}\n{adresse}\n{Nombre total d'appartements}\n{Nombre total d'entreprises}\n{Propriétaire}"}))
 
             # 좌표 CSV 다운로드 (다음 실행에서 재사용)
             st.markdown("### Télécharger les coordonnées")
