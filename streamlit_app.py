@@ -235,3 +235,6 @@ if uploaded_file is not None:
                                         tooltip={"text": "{Gérant group}\n{Gérant}\n{Type}\n{adresse}"}))
             else:
                 st.info("Coordonnées encore insuffisantes. 다음 배치로 추가 지오코딩 하세요.")
+
+    except Exception as e:
+        st.error(f"Erreur : {e}")
