@@ -1,6 +1,7 @@
 streamlit
-openai
-openpyxl
 pandas
+openpyxl
 geopy
 pydeck
+geopandas
+shapely
