@@ -27,9 +27,6 @@ if uploaded_file is not None:
             skiprows=4  # <<--- Ignore les 4 premières lignes
         )
 
-        st.success(f"Fichier chargé : {uploaded_file.name} / Feuille : {sheet}")
-        st.dataframe(df, use_container_width=True)
-
         if "Référence" in df.columns:
             # 강제로 숫자 변환 (문자/NaN → NaN)
             df["Référence_num"] = pd.to_numeric(df["Référence"], errors="coerce")
@@ -49,6 +46,9 @@ if uploaded_file is not None:
             df["Type"] = df["Référence_num"].apply(classify_type)
         else:
             st.warning("⚠️ La colonne 'Référence' est absente du fichier, impossible de créer 'Type'.")
+        
+        st.success(f"Fichier chargé : {uploaded_file.name} / Feuille : {sheet}")
+        st.dataframe(df, use_container_width=True)
 
         # ✅ (le reste de ton code géocodage + affichage carte vient ici, inchangé)
 
