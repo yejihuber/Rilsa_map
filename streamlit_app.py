@@ -3,10 +3,14 @@ import pandas as pd
 import numpy as np
 import requests
 import pydeck as pdk
+from streamlit.components.v1 import html as st_html
 
 def render_map_legend(keys, cmap, title="Légende"):
+    # 디버그: 키가 비면 안내 출력
     if not keys:
+        st.info("ℹ️ Légende: aucune catégorie à afficher (liste vide).")
         return
+
     items = "".join(
         f'''
         <div style="display:flex;align-items:center;gap:8px;margin:2px 0;">
@@ -18,16 +22,18 @@ def render_map_legend(keys, cmap, title="Légende"):
         for k in keys
     )
     html = f'''
-        <div style="
-            position:fixed; right:16px; top:100px; z-index:1000;
-            background:rgba(255,255,255,.92); padding:10px 12px;
-            border:1px solid #ddd; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.08);
-            max-height:60vh; overflow:auto;">
-            <div style="font-weight:600; margin-bottom:6px">{title}</div>
-            {items}
-        </div>
+    <div style="
+        position:fixed; right:16px; top:100px; z-index:99999;
+        background:rgba(255,255,255,.95); padding:10px 12px;
+        border:1px solid #ddd; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.08);
+        max-height:60vh; overflow:auto; font-family:ui-sans-serif,system-ui,-apple-system;">
+        <div style="font-weight:600; margin-bottom:6px">{title}</div>
+        {items}
+    </div>
     '''
-    st.markdown(html, unsafe_allow_html=True)
+    # components.html로 주입하면 pydeck 위에 안정적으로 뜹니다.
+    st_html(html, height=0)  # height는 오버레이라 0~1이면 충분
+
 
 
 st.set_page_config(page_title="RILSA map", layout="wide")
@@ -259,9 +265,26 @@ if uploaded_file is not None:
             st.pydeck_chart(pdk.Deck(layers=[layer_now], initial_view_state=view_state_now,
                                      tooltip={"text": "{Gérant}\n{adresse}\n{Nombre total d'appartements}\n{Nombre total d'entreprises}\n{Propriétaire}"}))
             
-            # 여기서 legend 표시
+            # 색상 키/맵이 실제로 채워졌는지 확인
+            st.write("🔎 Legend debug:", {"count": len(keys_now) if 'keys_now' in locals() else 0})
+
             legend_title = "Gérant group" if "Gérant group" in plotted_now.columns else "Gérant"
             render_map_legend(keys_now, cmap_now, f"Légende — {legend_title}")
+
+            if keys_now:
+                st.markdown("#### Légende (tableau)")
+                cols = st.columns(min(4, max(1, len(keys_now))))
+                for i, k in enumerate(keys_now):
+                    with cols[i % len(cols)]:
+                        st.markdown(
+                            f'''
+                            <div style="display:flex;align-items:center;gap:8px;margin:6px 0;">
+                                <span style="width:14px;height:14px;display:inline-block;border-radius:3px;
+                                            border:1px solid #0003;background:rgb({cmap_now[k][0]},{cmap_now[k][1]},{cmap_now[k][2]});"></span>
+                                <span style="font-size:13px">{k}</span>
+                            </div>
+                            ''', unsafe_allow_html=True
+                        )
 
         else:
             st.info("Aucune coordonnée existante — utilisez le géocodage pour compléter.")
