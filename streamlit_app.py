@@ -91,10 +91,15 @@ if uploaded_file is not None:
         st.subheader("Tableau filtré")
         st.dataframe(df_filtered, use_container_width=True)
 
-        # -------------------- Adresse & Géocodage --------------------
+        # -------------------- Adresse & Géocodage (optimisé) --------------------
         required_cols = ["Désignation", "NPA", "Lieu", "Canton"]
         missing = [c for c in required_cols if c not in df_filtered.columns]
-        if not missing and not df_filtered.empty:
+        if missing or df_filtered.empty:
+            if missing:
+                st.error(f"Colonnes manquantes pour construire l'adresse : {', '.join(missing)}")
+            else:
+                st.info("Aucune ligne après filtrage.")
+        else:
             df_filtered["adresse"] = (
                 df_filtered["Désignation"].astype(str).str.strip() + ", " +
                 df_filtered["NPA"].astype(str).str.strip() + " " +
@@ -102,87 +107,131 @@ if uploaded_file is not None:
                 df_filtered["Canton"].astype(str).str.strip() + ", Suisse"
             )
 
-            geolocator = Nominatim(user_agent="rilsa_map_app", timeout=10)
-            rate_limited_geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1, swallow_exceptions=True)
+            # 1) 먼저 좌표 있는 행만 즉시 지도 표시
+            has_latlon = ("latitude" in df_filtered.columns) and ("longitude" in df_filtered.columns)
+            plotted_now = df_filtered.dropna(subset=["latitude","longitude"]).copy() if has_latlon else pd.DataFrame()
 
-            @st.cache_data(show_spinner=False)
-            def geocode_addresses(unique_addresses):
-                results = {}
-                for addr in unique_addresses:
-                    loc = rate_limited_geocode(addr)
-                    if loc:
-                        results[addr] = (loc.latitude, loc.longitude)
-                    else:
-                        results[addr] = (None, None)
-                return results
+            # 컬러 맵 준비 (Gérant group 우선)
+            palette = [
+                [230,25,75],[60,180,75],[0,130,200],[245,130,48],[145,30,180],
+                [70,240,240],[240,50,230],[210,245,60],[250,190,190],[170,110,40]
+            ]
+            def apply_colors(df_points, key):
+                if key in df_points.columns:
+                    keys = sorted(df_points[key].astype(str).unique().tolist())
+                    cmap = {k: palette[i % len(palette)] for i,k in enumerate(keys)}
+                    df_points["color"] = df_points[key].astype(str).map(cmap)
+                    return keys, cmap
+                df_points["color"] = [[0,0,200]] * len(df_points)
+                return [], {}
 
-            uniq = df_filtered["adresse"].dropna().unique().tolist()
-            mapping = geocode_addresses(tuple(uniq))
-
-            df_filtered["latitude"]  = df_filtered["adresse"].map(lambda a: mapping.get(a, (None, None))[0])
-            df_filtered["longitude"] = df_filtered["adresse"].map(lambda a: mapping.get(a, (None, None))[1])
-
-            plotted = df_filtered.dropna(subset=["latitude", "longitude"]).copy()
-
-            st.markdown("### Carte (points colorés par Gérant group)")
-            if not plotted.empty:
-                # Palette fixe (R,G,B)
-                palette = [
-                    [230, 25, 75],   # rouge
-                    [60, 180, 75],   # vert
-                    [0, 130, 200],   # bleu
-                    [245, 130, 48],  # orange
-                    [145, 30, 180],  # violet
-                    [70, 240, 240],  # turquoise
-                    [240, 50, 230],  # rose
-                    [210, 245, 60],  # lime
-                    [250, 190, 190], # rose clair
-                    [170, 110, 40],  # marron
-                ]
-
-                # 🎨 Couleur par "Gérant group" (si absent, on retombe sur un bleu par défaut)
-                color_key = "Gérant group" if "Gérant group" in plotted.columns else ("Gérant" if "Gérant" in plotted.columns else None)
-                if color_key is not None:
-                    unique_keys = sorted(plotted[color_key].astype(str).unique().tolist())
-                    color_map = {g: palette[i % len(palette)] for i, g in enumerate(unique_keys)}
-                    plotted["color"] = plotted[color_key].astype(str).map(color_map)
-                else:
-                    unique_keys, color_map = [], {}
-                    plotted["color"] = [[0, 0, 200]] * len(plotted)
-
-                layer = pdk.Layer(
-                    "ScatterplotLayer",
-                    data=plotted,
-                    get_position='[longitude, latitude]',
-                    get_fill_color="color",
-                    get_radius=70,
-                    pickable=True,
-                )
-
+            color_key = "Gérant group" if "Gérant group" in df_filtered.columns else ("Gérant" if "Gérant" in df_filtered.columns else None)
+            if not plotted_now.empty:
+                keys, cmap = apply_colors(plotted_now, color_key) if color_key else ([], {})
                 view_state = pdk.ViewState(
-                    latitude=plotted["latitude"].mean(),
-                    longitude=plotted["longitude"].mean(),
+                    latitude=float(plotted_now["latitude"].mean()) if not plotted_now["latitude"].empty else 46.8182,
+                    longitude=float(plotted_now["longitude"].mean()) if not plotted_now["longitude"].empty else 8.2275,
                     zoom=9
                 )
-
-                # 툴팁에 Gérant group 추가
-                st.pydeck_chart(
-                    pdk.Deck(
-                        layers=[layer],
-                        initial_view_state=view_state,
-                        tooltip={"text": "{Gérant group}\n{Gérant}\n{Type}\n{adresse}"}
-                    )
+                layer = pdk.Layer(
+                    "ScatterplotLayer",
+                    data=plotted_now[["longitude","latitude","adresse","Type","Gérant","Gérant group","color"] if "Gérant group" in df_filtered.columns else ["longitude","latitude","adresse","Type","Gérant","color"]],
+                    get_position='[longitude, latitude]',
+                    get_fill_color="color",
+                    get_radius=60,
+                    pickable=True,
                 )
+                st.markdown("### Carte (coordonnées existantes)")
+                st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state,
+                                        tooltip={"text": "{Gérant group}\n{Gérant}\n{Type}\n{adresse}"}))
 
-                # (선택) 간단한 범례
-                if color_key is not None and unique_keys:
-                    st.markdown("**Légende ({} → Couleur)**".format(color_key))
-                    for g in unique_keys:
-                        st.write(f"- {g} : rgb{tuple(color_map[g])}")
+            # 2) 결측 좌표만 버튼으로 지오코딩 (Nominatim 느림 → 배치 제한)
+            #    캐시 + 파일 저장(영구)로 다음 실행 가속
+            geolocator = Nominatim(user_agent="rilsa_map_app", timeout=10)
+            rate_limited_geocode = RateLimiter(geolocator.geocode, min_delay_seconds=3, max_retries=2, swallow_exceptions=True)
 
+            import hashlib, json, os, pathlib
+            CACHE_DIR = pathlib.Path("./.geo_cache")
+            CACHE_DIR.mkdir(exist_ok=True)
+            file_sig = hashlib.md5(f"{uploaded_file.name}|{sheet}".encode("utf-8")).hexdigest()
+            cache_path = CACHE_DIR / f"geocode_cache_{file_sig}.json"
+
+            # 디스크 캐시 로드
+            if cache_path.exists():
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    disk_cache = json.load(f)
             else:
-                st.info("Aucun point géocodé valide à afficher.")
+                disk_cache = {}
 
-    except Exception as e:
-        st.error(f"Erreur : {e}")
+            # 이미 캐시/좌표 있는 행 제외하고 주소 목록 구성
+            need_geo_df = df_filtered.copy()
+            if has_latlon:
+                need_geo_df = need_geo_df[need_geo_df["latitude"].isna() | need_geo_df["longitude"].isna()].copy()
+            to_geocode_all = [a for a in need_geo_df["adresse"].dropna().unique().tolist() if a not in disk_cache]
 
+            st.subheader("Géocodage des adresses manquantes (Nominatim)")
+            limit = st.slider("Limite de géocodage pour cette exécution", 10, 500, 100, 10)
+            to_geocode = to_geocode_all[:limit]
+
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write(f"Adresses à géocoder (hors cache) : **{len(to_geocode_all)}**")
+            with col2:
+                start_geo = st.button("🚀 Lancer le géocodage (lot limité)")
+
+            @st.cache_data(show_spinner=False)
+            def geocode_batch(addresses: tuple):
+                # cache_data는 메모리 캐시(세션용). 디스크 캐시는 별도로 관리.
+                out = {}
+                progress = st.progress(0)
+                total = len(addresses)
+                for i, addr in enumerate(addresses, start=1):
+                    loc = rate_limited_geocode(addr)
+                    if loc:
+                        out[addr] = (loc.latitude, loc.longitude)
+                    else:
+                        out[addr] = (None, None)
+                    progress.progress(i/total)
+                return out
+
+            if start_geo and to_geocode:
+                new_mapping = geocode_batch(tuple(to_geocode))
+                # 디스크 캐시 병합/저장
+                disk_cache.update({k: v for k, v in new_mapping.items() if k})
+                with open(cache_path, "w", encoding="utf-8") as f:
+                    json.dump(disk_cache, f, ensure_ascii=False)
+
+            # 캐시(메모리+디스크) 모아서 좌표 주입
+            def get_coords(addr):
+                if addr in disk_cache:
+                    return disk_cache[addr]
+                return (None, None)
+
+            df_filtered["latitude"]  = df_filtered.get("latitude")
+            df_filtered["longitude"] = df_filtered.get("longitude")
+            coords_series = df_filtered["adresse"].map(get_coords)
+            df_filtered.loc[df_filtered["latitude"].isna(),  "latitude"]  = coords_series.map(lambda x: x[0])
+            df_filtered.loc[df_filtered["longitude"].isna(), "longitude"] = coords_series.map(lambda x: x[1])
+
+            plotted_final = df_filtered.dropna(subset=["latitude","longitude"]).copy()
+
+            st.markdown("### Carte (mise à jour après géocodage)")
+            if not plotted_final.empty:
+                keys, cmap = apply_colors(plotted_final, color_key) if color_key else ([], {})
+                view_state2 = pdk.ViewState(
+                    latitude=float(plotted_final["latitude"].mean()),
+                    longitude=float(plotted_final["longitude"].mean()),
+                    zoom=9
+                )
+                layer2 = pdk.Layer(
+                    "ScatterplotLayer",
+                    data=plotted_final[["longitude","latitude","adresse","Type","Gérant","Gérant group","color"] if "Gérant group" in df_filtered.columns else ["longitude","latitude","adresse","Type","Gérant","color"]],
+                    get_position='[longitude, latitude]',
+                    get_fill_color="color",
+                    get_radius=60,
+                    pickable=True,
+                )
+                st.pydeck_chart(pdk.Deck(layers=[layer2], initial_view_state=view_state2,
+                                        tooltip={"text": "{Gérant group}\n{Gérant}\n{Type}\n{adresse}"}))
+            else:
+                st.info("Coordonnées encore insuffisantes. 다음 배치로 추가 지오코딩 하세요.")
