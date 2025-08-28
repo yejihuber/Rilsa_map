@@ -279,43 +279,6 @@ except Exception as e:
     st.warning(f"Impossible de fusionner le CSV par défaut: {e}")
 
 # =========================
-# (옵션) 좌표 CSV 업로드로 추가 재사용
-# =========================
-st.sidebar.markdown("### Recharger des coordonnées (CSV)")
-coords_file = st.sidebar.file_uploader(
-    "CSV avec 'adresse,latitude,longitude' ou 'Référence,latitude,longitude'",
-    type=["csv"], key="coords_csv"
-)
-if coords_file is not None:
-    try:
-        coords_df = pd.read_csv(coords_file)
-        merged = False
-        if {"adresse","latitude","longitude"}.issubset(coords_df.columns):
-            df_filtered = df_filtered.merge(
-                coords_df[["adresse","latitude","longitude"]],
-                on="adresse", how="left", suffixes=("", "_cache")
-            )
-            if "latitude_cache" in df_filtered.columns and "longitude_cache" in df_filtered.columns:
-                df_filtered["latitude"]  = df_filtered["latitude"].fillna(df_filtered["latitude_cache"])
-                df_filtered["longitude"] = df_filtered["longitude"].fillna(df_filtered["longitude_cache"])
-                df_filtered.drop(columns=["latitude_cache","longitude_cache"], inplace=True)
-            merged = True
-        if (not merged) and {"Référence","latitude","longitude"}.issubset(coords_df.columns) and "Référence" in df_filtered.columns:
-            df_filtered = df_filtered.merge(
-                coords_df[["Référence","latitude","longitude"]],
-                on="Référence", how="left", suffixes=("", "_cache")
-            )
-            if "latitude_cache" in df_filtered.columns and "longitude_cache" in df_filtered.columns:
-                df_filtered["latitude"]  = df_filtered["latitude"].fillna(df_filtered["latitude_cache"])
-                df_filtered["longitude"] = df_filtered["longitude"].fillna(df_filtered["longitude_cache"])
-                df_filtered.drop(columns=["latitude_cache","longitude_cache"], inplace=True)
-            merged = True
-        if merged:
-            st.success("Coordonnées rechargées depuis le CSV (upload).")
-    except Exception as e:
-        st.sidebar.error(f"Erreur CSV coords: {e}")
-
-# =========================
 # 최종 지도 + 레전드 + CSV 다운로드
 # =========================
 plotted_final = df_filtered.dropna(subset=["latitude","longitude"]).copy()
