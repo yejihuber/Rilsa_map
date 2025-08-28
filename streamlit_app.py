@@ -277,7 +277,7 @@ except Exception as e:
     st.warning(f"Impossible de fusionner le CSV par défaut: {e}")
 
 # =========================
-# 최종 지도 + 레전드 + CSV 다운로드
+# 최종 지도 + 레전드
 # =========================
 plotted_final = df_filtered.dropna(subset=["latitude","longitude"]).copy()
 st.markdown("### Carte (mise à jour)")
@@ -317,53 +317,54 @@ else:
 # =========================
 # Google 지오코딩 (결측만)
 # =========================
-st.subheader("Géocodage Google Maps (compléter les manquants)")
-limit = st.slider("Limiter le nombre d'adresses à géocoder maintenant", 10, 1000, 200, 10)
+with st.expander("📍 Géocodage Google Maps (compléter les manquants)", expanded=False):
+    st.subheader("Géocodage Google Maps (compléter les manquants)")
+    limit = st.slider("Limiter le nombre d'adresses à géocoder maintenant", 10, 1000, 1000, 10)
 
-# API Key
-api_key = st.secrets.get("GOOGLE_MAPS_API_KEY", None)
-if not api_key:
-    api_key = st.text_input("Entrez votre Google Maps API Key", type="password")
-
-need_geo = df_filtered[
-    df_filtered["adresse"].notna() &
-    (
-        ("latitude" not in df_filtered.columns) |
-        ("longitude" not in df_filtered.columns) |
-        df_filtered["latitude"].isna() | df_filtered["longitude"].isna()
-    )
-].copy()
-
-to_geocode = need_geo["adresse"].dropna().unique().tolist()[:limit]
-
-col1, col2 = st.columns(2)
-with col1:
-    st.write(f"Adresses sans coordonnées (sélection) : **{len(to_geocode)}**")
-with col2:
-    start_geo = st.button("🚀 Lancer le géocodage Google")
-
-if start_geo:
+    # API Key
+    api_key = st.secrets.get("GOOGLE_MAPS_API_KEY", None)
     if not api_key:
-        st.error("Veuillez saisir votre **Google Maps API Key**.")
-        st.stop()
-    mapping = gmaps_geocode_batch(tuple(to_geocode), api_key)
-    mask_map = df_filtered["adresse"].isin(mapping.keys())
-    df_filtered.loc[mask_map, "latitude"]  = df_filtered.loc[mask_map, "adresse"].map(lambda a: mapping.get(a,(None,None))[0])
-    df_filtered.loc[mask_map, "longitude"] = df_filtered.loc[mask_map, "adresse"].map(lambda a: mapping.get(a,(None,None))[1])
-    st.success("Géocodage Google terminé pour le lot courant.")
+        api_key = st.text_input("Entrez votre Google Maps API Key", type="password")
+
+    need_geo = df_filtered[
+        df_filtered["adresse"].notna() &
+        (
+            ("latitude" not in df_filtered.columns) |
+            ("longitude" not in df_filtered.columns) |
+            df_filtered["latitude"].isna() | df_filtered["longitude"].isna()
+        )
+    ].copy()
+
+    to_geocode = need_geo["adresse"].dropna().unique().tolist()[:limit]
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.write(f"Adresses sans coordonnées (sélection) : **{len(to_geocode)}**")
+    with col2:
+        start_geo = st.button("🚀 Lancer le géocodage Google")
+
+    if start_geo:
+        if not api_key:
+            st.error("Veuillez saisir votre **Google Maps API Key**.")
+            st.stop()
+        mapping = gmaps_geocode_batch(tuple(to_geocode), api_key)
+        mask_map = df_filtered["adresse"].isin(mapping.keys())
+        df_filtered.loc[mask_map, "latitude"]  = df_filtered.loc[mask_map, "adresse"].map(lambda a: mapping.get(a,(None,None))[0])
+        df_filtered.loc[mask_map, "longitude"] = df_filtered.loc[mask_map, "adresse"].map(lambda a: mapping.get(a,(None,None))[1])
+        st.success("Géocodage Google terminé pour le lot courant.")
 
 # 좌표 CSV 다운로드
-st.markdown("### Télécharger les coordonnées")
-save_cols = [c for c in [
-    "Référence","Gérant","Gérant group","Type",
-    "Désignation","NPA","Lieu","Canton",
-    "adresse","latitude","longitude",
-    "Nombre total d'appartements","Nombre total d'entreprises","Propriétaire"
-] if c in plotted_final.columns]
-export_df = plotted_final[save_cols].copy()
-st.download_button(
-    label="⬇️ Télécharger CSV (lat/lon inclus)",
-    data=export_df.to_csv(index=False).encode("utf-8"),
-    file_name="rilsa_coords.csv",
-    mime="text/csv"
-)
+with st.expander("⬇️ Télécharger les coordonnées", expanded=False):
+    save_cols = [c for c in [
+        "Référence","Gérant","Gérant group","Type",
+        "Désignation","NPA","Lieu","Canton",
+        "adresse","latitude","longitude",
+        "Nombre total d'appartements","Nombre total d'entreprises","Propriétaire"
+    ] if c in plotted_final.columns]
+    export_df = plotted_final[save_cols].copy()
+    st.download_button(
+        label="⬇️ Télécharger CSV (lat/lon inclus)",
+        data=export_df.to_csv(index=False).encode("utf-8"),
+        file_name="rilsa_coords.csv",
+        mime="text/csv"
+    )
