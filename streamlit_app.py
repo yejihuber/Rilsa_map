@@ -231,6 +231,42 @@ if type_sel is not None and "Type" in df_filtered.columns:
 #st.dataframe(df_filtered, use_container_width=True)
 
 # =========================
+# 최종 지도 + 레전드
+# =========================
+plotted_final = df_filtered.dropna(subset=["latitude","longitude"]).copy()
+st.markdown("### Carte (mise à jour)")
+if not plotted_final.empty:
+    color_key = "Gérant group" if "Gérant group" in plotted_final.columns else ("Gérant" if "Gérant" in plotted_final.columns else None)
+    keys_final, cmap_final = assign_colors(plotted_final, color_key)
+
+    # 툴팁 필드 보정
+    for c in ["Gérant","Gérant group","Type","adresse","Nombre total d'appartements","Nombre total d'entreprises","Propriétaire"]:
+        if c not in plotted_final.columns:
+            plotted_final[c] = ""
+
+    view_state2 = pdk.ViewState(
+        latitude=safe_mean(plotted_final["latitude"], 46.8182),
+        longitude=safe_mean(plotted_final["longitude"], 8.2275),
+        zoom=9
+    )
+    layer2 = pdk.Layer(
+        "ScatterplotLayer",
+        data=plotted_final,
+        get_position='[longitude, latitude]',
+        get_fill_color="color",
+        get_radius=200,      # 점 크기 — 필요시 조절
+        pickable=True,
+    )
+    st.pydeck_chart(pdk.Deck(
+        layers=[layer2],
+        initial_view_state=view_state2,
+        tooltip={"html": TOOLTIP_HTML, "style": {"backgroundColor":"rgba(255,255,255,0.95)", "color":"black"}}
+    ))
+
+    legend_title_final = color_key if color_key else "Catégorie"
+    render_table_legend(keys_final, cmap_final, f"Légende — {legend_title_final}", cols_per_row=4)
+
+# =========================
 # 주소 생성
 # =========================
 required_cols = ["Désignation", "NPA", "Lieu", "Canton"]
@@ -359,40 +395,8 @@ if start_geo:
     st.success("Géocodage Google terminé pour le lot courant.")
 
 # =========================
-# 최종 지도 + 레전드 + CSV 다운로드
+# CSV 다운로드
 # =========================
-plotted_final = df_filtered.dropna(subset=["latitude","longitude"]).copy()
-st.markdown("### Carte (mise à jour)")
-if not plotted_final.empty:
-    color_key = "Gérant group" if "Gérant group" in plotted_final.columns else ("Gérant" if "Gérant" in plotted_final.columns else None)
-    keys_final, cmap_final = assign_colors(plotted_final, color_key)
-
-    # 툴팁 필드 보정
-    for c in ["Gérant","Gérant group","Type","adresse","Nombre total d'appartements","Nombre total d'entreprises","Propriétaire"]:
-        if c not in plotted_final.columns:
-            plotted_final[c] = ""
-
-    view_state2 = pdk.ViewState(
-        latitude=safe_mean(plotted_final["latitude"], 46.8182),
-        longitude=safe_mean(plotted_final["longitude"], 8.2275),
-        zoom=9
-    )
-    layer2 = pdk.Layer(
-        "ScatterplotLayer",
-        data=plotted_final,
-        get_position='[longitude, latitude]',
-        get_fill_color="color",
-        get_radius=200,      # 점 크기 — 필요시 조절
-        pickable=True,
-    )
-    st.pydeck_chart(pdk.Deck(
-        layers=[layer2],
-        initial_view_state=view_state2,
-        tooltip={"html": TOOLTIP_HTML, "style": {"backgroundColor":"rgba(255,255,255,0.95)", "color":"black"}}
-    ))
-
-    legend_title_final = color_key if color_key else "Catégorie"
-    render_table_legend(keys_final, cmap_final, f"Légende — {legend_title_final}", cols_per_row=4)
 
     # 좌표 CSV 다운로드
     st.markdown("### Télécharger les coordonnées")
