@@ -319,39 +319,6 @@ if coords_file is not None:
         st.sidebar.error(f"Erreur CSV coords: {e}")
 
 # =========================
-# Google 지오코딩 (결측만)
-# =========================
-st.subheader("Géocodage Google Maps (compléter les manquants)")
-limit = st.slider("Limiter le nombre d'adresses à géocoder maintenant", 10, 1000, 200, 10)
-
-need_geo = df_filtered[
-    df_filtered["adresse"].notna() &
-    (
-        ("latitude" not in df_filtered.columns) |
-        ("longitude" not in df_filtered.columns) |
-        df_filtered["latitude"].isna() | df_filtered["longitude"].isna()
-    )
-].copy()
-
-to_geocode = need_geo["adresse"].dropna().unique().tolist()[:limit]
-
-col1, col2 = st.columns(2)
-with col1:
-    st.write(f"Adresses sans coordonnées (sélection) : **{len(to_geocode)}**")
-with col2:
-    start_geo = st.button("🚀 Lancer le géocodage Google")
-
-if start_geo:
-    if not api_key:
-        st.error("Veuillez saisir votre **Google Maps API Key**.")
-        st.stop()
-    mapping = gmaps_geocode_batch(tuple(to_geocode), api_key)
-    mask_map = df_filtered["adresse"].isin(mapping.keys())
-    df_filtered.loc[mask_map, "latitude"]  = df_filtered.loc[mask_map, "adresse"].map(lambda a: mapping.get(a,(None,None))[0])
-    df_filtered.loc[mask_map, "longitude"] = df_filtered.loc[mask_map, "adresse"].map(lambda a: mapping.get(a,(None,None))[1])
-    st.success("Géocodage Google terminé pour le lot courant.")
-
-# =========================
 # 최종 지도 + 레전드 + CSV 다운로드
 # =========================
 plotted_final = df_filtered.dropna(subset=["latitude","longitude"]).copy()
@@ -411,3 +378,36 @@ else:
 api_key = st.secrets.get("GOOGLE_MAPS_API_KEY", None)
 if not api_key:
     api_key = st.text_input("Entrez votre Google Maps API Key", type="password")
+
+# =========================
+# Google 지오코딩 (결측만)
+# =========================
+st.subheader("Géocodage Google Maps (compléter les manquants)")
+limit = st.slider("Limiter le nombre d'adresses à géocoder maintenant", 10, 1000, 200, 10)
+
+need_geo = df_filtered[
+    df_filtered["adresse"].notna() &
+    (
+        ("latitude" not in df_filtered.columns) |
+        ("longitude" not in df_filtered.columns) |
+        df_filtered["latitude"].isna() | df_filtered["longitude"].isna()
+    )
+].copy()
+
+to_geocode = need_geo["adresse"].dropna().unique().tolist()[:limit]
+
+col1, col2 = st.columns(2)
+with col1:
+    st.write(f"Adresses sans coordonnées (sélection) : **{len(to_geocode)}**")
+with col2:
+    start_geo = st.button("🚀 Lancer le géocodage Google")
+
+if start_geo:
+    if not api_key:
+        st.error("Veuillez saisir votre **Google Maps API Key**.")
+        st.stop()
+    mapping = gmaps_geocode_batch(tuple(to_geocode), api_key)
+    mask_map = df_filtered["adresse"].isin(mapping.keys())
+    df_filtered.loc[mask_map, "latitude"]  = df_filtered.loc[mask_map, "adresse"].map(lambda a: mapping.get(a,(None,None))[0])
+    df_filtered.loc[mask_map, "longitude"] = df_filtered.loc[mask_map, "adresse"].map(lambda a: mapping.get(a,(None,None))[1])
+    st.success("Géocodage Google terminé pour le lot courant.")
