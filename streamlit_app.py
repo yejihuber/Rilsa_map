@@ -55,45 +55,13 @@ def render_table_legend(keys, cmap, title="Légende", cols_per_row=4):
 # 멀티셀렉트 내부에 "Tout" 옵션 내장
 # =========================
 def multiselect_with_select_all(label: str, options: list, key: str):
-    """
-    멀티셀렉트 안에 'Tout' 항목을 넣어 전체 선택 지원.
-    - 'Tout'만 선택: 전체 선택
-    - 'Tout'+다른 항목 함께 선택: 사용자가 부분 선택 의도 → 'Tout' 자동 제거
-    - 모든 실제 항목이 선택되면 UI에선 자동으로 'Tout+전체'로 동기화
-    """
     ALL = "Tout"
     opts = [ALL] + options
-
-    # 최초 기본값: 'Tout + 전체'
-    value_key = f"{key}__value"
-    widget_key = f"{key}__widget"
-    if value_key not in st.session_state:
-        st.session_state[value_key] = [ALL] + options
-
-    # 위젯 표시
-    sel = st.multiselect(label, options=opts,
-                         default=st.session_state[value_key],
-                         key=widget_key)
-
-    # 선택 정규화
-    if ALL in sel:
-        if len(sel) == 1:
-            # 'Tout'만 선택 → 전체
-            chosen = options
-            normalized = [ALL] + options
-        else:
-            # 'Tout'+다른 항목 → 부분 선택 의도 → 'Tout' 제거
-            chosen = [x for x in sel if x != ALL]
-            normalized = chosen
-    else:
-        chosen = sel
-        normalized = chosen
-        # 실제 항목이 전부 선택되면 UI를 'Tout+전체'로 동기화
-        if set(chosen) == set(options):
-            normalized = [ALL] + options
-
-    # 다음 렌더에서 그대로 유지
-    st.session_state[value_key] = normalized
+    selected_real = st.session_state.get(key, options)  # 초기엔 전체 선택
+    default_widget = [ALL] + options if set(selected_real) == set(options) else selected_real
+    sel = st.multiselect(label, options=opts, default=default_widget, key=f"{key}__widget")
+    chosen = options if ALL in sel else [x for x in sel if x != ALL]
+    st.session_state[key] = chosen
     return chosen
 
 # =========================
