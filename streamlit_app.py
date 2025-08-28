@@ -354,7 +354,6 @@ with st.expander("📍 Géocodage Google Maps (compléter les manquants)", expan
         st.success("Géocodage Google terminé pour le lot courant.")
 
 # 좌표 CSV 다운로드
-with st.expander("⬇️ Télécharger les coordonnées", expanded=False):
     save_cols = [c for c in [
         "Référence","Gérant","Gérant group","Type",
         "Désignation","NPA","Lieu","Canton",
