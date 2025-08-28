@@ -227,8 +227,8 @@ if gerant_sel is not None:
 if type_sel is not None and "Type" in df_filtered.columns:
     df_filtered = df_filtered[df_filtered["Type"].astype(str).isin(type_sel)]
 
-st.subheader("Tableau filtré")
-st.dataframe(df_filtered, use_container_width=True)
+#st.subheader("Tableau filtré")
+#st.dataframe(df_filtered, use_container_width=True)
 
 # =========================
 # 주소 생성
