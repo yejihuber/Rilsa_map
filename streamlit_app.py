@@ -312,24 +312,6 @@ if not plotted_final.empty:
     legend_title_final = color_key if color_key else "Catégorie"
     render_table_legend(keys_final, cmap_final, f"Légende — {legend_title_final}", cols_per_row=4)
 
-    # 좌표 CSV 다운로드
-    st.markdown("### Télécharger les coordonnées")
-    save_cols = [c for c in [
-        "Référence","Gérant","Gérant group","Type",
-        "Désignation","NPA","Lieu","Canton",
-        "adresse","latitude","longitude",
-        "Nombre total d'appartements","Nombre total d'entreprises","Propriétaire"
-    ] if c in plotted_final.columns]
-    export_df = plotted_final[save_cols].copy()
-    st.download_button(
-        label="⬇️ Télécharger CSV (lat/lon inclus)",
-        data=export_df.to_csv(index=False).encode("utf-8"),
-        file_name="rilsa_coords.csv",
-        mime="text/csv"
-    )
-else:
-    st.info("Aucun point avec coordonnées pour l’instant. Lancez le géocodage Google ou vérifiez vos filtres.")
-
 # =========================
 # API Key
 # =========================
@@ -369,3 +351,21 @@ if start_geo:
     df_filtered.loc[mask_map, "latitude"]  = df_filtered.loc[mask_map, "adresse"].map(lambda a: mapping.get(a,(None,None))[0])
     df_filtered.loc[mask_map, "longitude"] = df_filtered.loc[mask_map, "adresse"].map(lambda a: mapping.get(a,(None,None))[1])
     st.success("Géocodage Google terminé pour le lot courant.")
+
+# 좌표 CSV 다운로드
+    st.markdown("### Télécharger les coordonnées")
+    save_cols = [c for c in [
+        "Référence","Gérant","Gérant group","Type",
+        "Désignation","NPA","Lieu","Canton",
+        "adresse","latitude","longitude",
+        "Nombre total d'appartements","Nombre total d'entreprises","Propriétaire"
+    ] if c in plotted_final.columns]
+    export_df = plotted_final[save_cols].copy()
+    st.download_button(
+        label="⬇️ Télécharger CSV (lat/lon inclus)",
+        data=export_df.to_csv(index=False).encode("utf-8"),
+        file_name="rilsa_coords.csv",
+        mime="text/csv"
+    )
+else:
+    st.info("Aucun point avec coordonnées pour l’instant. Lancez le géocodage Google ou vérifiez vos filtres.")
