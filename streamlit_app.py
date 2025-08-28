@@ -142,13 +142,6 @@ def gmaps_geocode_batch(addresses: tuple, key: str):
     return out
 
 # =========================
-# API Key
-# =========================
-api_key = st.secrets.get("GOOGLE_MAPS_API_KEY", None)
-if not api_key:
-    api_key = st.text_input("Entrez votre Google Maps API Key", type="password")
-
-# =========================
 # 업로드 / 기본 데이터 선택
 # =========================
 uploaded_file = st.file_uploader("Téléversez un fichier Excel (.xlsx)", type=["xlsx"])
@@ -411,3 +404,10 @@ if not plotted_final.empty:
     )
 else:
     st.info("Aucun point avec coordonnées pour l’instant. Lancez le géocodage Google ou vérifiez vos filtres.")
+
+# =========================
+# API Key
+# =========================
+api_key = st.secrets.get("GOOGLE_MAPS_API_KEY", None)
+if not api_key:
+    api_key = st.text_input("Entrez votre Google Maps API Key", type="password")
