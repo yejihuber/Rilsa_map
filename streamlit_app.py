@@ -271,8 +271,6 @@ try:
             df_filtered["longitude"] = df_filtered["longitude"].fillna(df_filtered["longitude_def"])
             df_filtered.drop(columns=["latitude_def","longitude_def"], inplace=True)
         merged = True
-    if merged:
-        st.success("Coordonnées par défaut appliquées.")
 except FileNotFoundError:
     st.warning(f"CSV lat/lon par défaut introuvable: {DEFAULT_COORDS_CSV_PATH}")
 except Exception as e:
