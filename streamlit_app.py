@@ -315,17 +315,15 @@ else:
     st.info("Aucun point avec coordonnées pour l’instant. Lancez le géocodage Google ou vérifiez vos filtres.")
 
 # =========================
-# API Key
-# =========================
-api_key = st.secrets.get("GOOGLE_MAPS_API_KEY", None)
-if not api_key:
-    api_key = st.text_input("Entrez votre Google Maps API Key", type="password")
-
-# =========================
 # Google 지오코딩 (결측만)
 # =========================
 st.subheader("Géocodage Google Maps (compléter les manquants)")
 limit = st.slider("Limiter le nombre d'adresses à géocoder maintenant", 10, 1000, 200, 10)
+
+# API Key
+api_key = st.secrets.get("GOOGLE_MAPS_API_KEY", None)
+if not api_key:
+    api_key = st.text_input("Entrez votre Google Maps API Key", type="password")
 
 need_geo = df_filtered[
     df_filtered["adresse"].notna() &
