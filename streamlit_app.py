@@ -1,11 +1,23 @@
-import streamlit as st
-import pandas as pd
+import io
 import numpy as np
+import pandas as pd
 import requests
+import streamlit as st
 import pydeck as pdk
-from streamlit.components.v1 import html as st_html
 
-# ── Tooltip HTML (Nom : Valeur)
+# =========================
+# 기본 데이터 경로(원하는 경로로 바꿔도 됨)
+# =========================
+DEFAULT_XLSX_PATH = "KPI_-_Repartition_portefeuille-20250716.xlsx"        # 기본 엑셀
+DEFAULT_COORDS_CSV_PATH = "rilsa_coords.csv" # 기본 좌표 CSV
+DEFAULT_SHEET_NAME = None  # None이면 첫 시트
+
+st.set_page_config(page_title="RILSA map", layout="wide")
+st.title("RILSA map")
+
+# =========================
+# Tooltip HTML (Nom : Valeur)
+# =========================
 TOOLTIP_HTML = """
 <div style="font-family: ui-sans-serif,system-ui; font-size:12px; line-height:1.25;">
   <div><b>Gérant :</b> {Gérant}</div>
@@ -18,9 +30,10 @@ TOOLTIP_HTML = """
 </div>
 """
 
-
+# =========================
+# 레전드(표) 렌더러
+# =========================
 def render_table_legend(keys, cmap, title="Légende", cols_per_row=4):
-    """keys: 카테고리 리스트, cmap: {cat: [r,g,b]} 매핑"""
     if not keys:
         return
     st.markdown(f"#### {title} (tableau)")
@@ -31,77 +44,46 @@ def render_table_legend(keys, cmap, title="Légende", cols_per_row=4):
                 f'''
                 <div style="display:flex;align-items:center;gap:8px;margin:6px 0;">
                     <span style="width:14px;height:14px;display:inline-block;border-radius:3px;
-                                 border:1px solid #0003;background:rgb({cmap[k][0]},{cmap[k][1]},{cmap[k][2]});"></span>
+                                 border:1px solid #0003;background:rgb({cmap[k][0]},{cmap[k][1]},{cmap[k][2]},{cmap[k][3] if len(cmap[k])>3 else 255});"></span>
                     <span style="font-size:13px">{k}</span>
                 </div>
                 ''',
                 unsafe_allow_html=True
             )
 
-
-
-st.set_page_config(page_title="RILSA map", layout="wide")
-st.title("RILSA map")
-
-# --- Google API Key: secrets 우선, 없으면 입력받기 ---
-api_key = st.secrets.get("GOOGLE_MAPS_API_KEY", None)
-if not api_key:
-    api_key = st.text_input("Entrez votre Google Maps API Key", type="password")
-
-uploaded_file = st.file_uploader("Téléversez un fichier Excel (.xlsx)", type=["xlsx"])
-
-# -------------------- 유틸 --------------------
+# =========================
+# 멀티셀렉트 내부에 "Tout" 옵션 내장
+# =========================
 def multiselect_with_select_all(label: str, options: list, key: str):
-    """
-    멀티셀렉트 안에 'Tout' 항목을 넣어 전체 선택을 지원.
-    - UI에는 'Tout'가 첫 번째 옵션으로 보임.
-    - 반환값은 항상 '실제 옵션들'만 포함(= 'Tout' 제외).
-    """
     ALL = "Tout"
     opts = [ALL] + options
-
-    # 현재 선택(실제 옵션 기준)을 세션에 유지
-    selected_real = st.session_state.get(key, options)  # 처음엔 전체 선택
-
-    # 위젯에 보여줄 기본 선택값: 전체면 'Tout'+전체, 아니면 실제 선택
-    if set(selected_real) == set(options):
-        default_widget = [ALL] + options
-    else:
-        default_widget = selected_real
-
+    selected_real = st.session_state.get(key, options)  # 초기엔 전체 선택
+    default_widget = [ALL] + options if set(selected_real) == set(options) else selected_real
     sel = st.multiselect(label, options=opts, default=default_widget, key=f"{key}__widget")
-
-    # 사용자가 'Tout'를 포함해 선택했으면 전체로 간주
-    if ALL in sel:
-        chosen = options
-    else:
-        # 'Tout' 없이 실제 항목들만
-        chosen = [x for x in sel if x != ALL]
-
-    # 세션에 저장(다음 렌더 기본값으로 사용)
+    chosen = options if ALL in sel else [x for x in sel if x != ALL]
     st.session_state[key] = chosen
     return chosen
 
-# 고정 팔레트(전역)
+# =========================
+# 색상 팔레트 + 색상 적용(반투명)
+# =========================
 PALETTE = [
     [230, 25, 75], [60, 180, 75], [0, 130, 200], [245, 130, 48], [145, 30, 180],
     [70, 240, 240], [240, 50, 230], [210, 245, 60], [250, 190, 190], [170, 110, 40],
 ]
 
-def assign_colors(df_points, color_key, palette=PALETTE):
-    """
-    df_points: 색상을 입힐 DataFrame (latitude/longitude 포함)
-    color_key: 색상 기준 컬럼명 ('Gérant group' 또는 'Gérant')
-    반환: (keys(list), cmap(dict))  + df_points['color'] 컬럼 채움(제자리 수정)
-    """
+def assign_colors(df_points, color_key, palette=PALETTE, alpha=120):
     if (not color_key) or (color_key not in df_points.columns):
-        df_points["color"] = [[0, 0, 200, 120]] * len(df_points)
+        df_points["color"] = [[0, 0, 200, alpha]] * len(df_points)
         return [], {}
     keys = sorted(df_points[color_key].astype(str).unique().tolist())
-    cmap = {k: palette[i % len(palette)] for i, k in enumerate(keys)}
+    cmap = {k: palette[i % len(palette)] + [alpha] for i, k in enumerate(keys)}
     df_points["color"] = df_points[color_key].astype(str).map(cmap)
     return keys, cmap
 
+# =========================
+# 분류/그룹 유틸
+# =========================
 def classify_type_from_ref(ref):
     if pd.isna(ref):
         return "Inconnu"
@@ -123,7 +105,7 @@ def compute_gerant_group(name):
         return "Nyon"
     if n in {"CURCHOD Merry", "DE PREUX Joanna"}:
         return "Montreux"
-    return n  # 나머지는 원래 Gérant 유지
+    return n
 
 def safe_mean(series, default):
     try:
@@ -132,7 +114,9 @@ def safe_mean(series, default):
     except:
         return default
 
-# Google Geocoding 한 건
+# =========================
+# Google Geocoding
+# =========================
 def gmaps_geocode_one(address: str, key: str):
     url = "https://maps.googleapis.com/maps/api/geocode/json"
     params = {"address": address, "key": key, "region": "ch", "language": "fr"}
@@ -157,214 +141,273 @@ def gmaps_geocode_batch(addresses: tuple, key: str):
         progress.progress(i/total)
     return out
 
-# -------------------- 메인 --------------------
-if uploaded_file is not None:
-    try:
-        # Excel 로드
+# =========================
+# API Key
+# =========================
+api_key = st.secrets.get("GOOGLE_MAPS_API_KEY", None)
+if not api_key:
+    api_key = st.text_input("Entrez votre Google Maps API Key", type="password")
+
+# =========================
+# 업로드 / 기본 데이터 선택
+# =========================
+uploaded_file = st.file_uploader("Téléversez un fichier Excel (.xlsx)", type=["xlsx"])
+use_default = st.sidebar.toggle(
+    "Utiliser les données par défaut (Excel + CSV lat/lon)",
+    value=(uploaded_file is None)
+)
+
+# =========================
+# 데이터 로딩 (업로드 또는 기본)
+# =========================
+df = None
+source_desc = ""
+try:
+    if not use_default and uploaded_file is not None:
         xls = pd.ExcelFile(uploaded_file, engine="openpyxl")
         sheet = st.selectbox("Choisissez une feuille", xls.sheet_names, index=0)
         df = pd.read_excel(xls, sheet_name=sheet, engine="openpyxl", skiprows=4)
+        source_desc = f"Fichier chargé : {uploaded_file.name} / Feuille : {sheet}"
+    else:
+        xls = pd.ExcelFile(DEFAULT_XLSX_PATH, engine="openpyxl")
+        sheet_names = xls.sheet_names
+        sheet = DEFAULT_SHEET_NAME if (DEFAULT_SHEET_NAME in sheet_names) else sheet_names[0]
+        df = pd.read_excel(xls, sheet_name=sheet, engine="openpyxl", skiprows=4)
+        source_desc = f"Données par défaut : {DEFAULT_XLSX_PATH} / Feuille : {sheet}"
+except Exception as e:
+    st.error(f"Impossible de charger le fichier Excel: {e}")
+    st.stop()
 
-        # 1) Gérant == "REM4you (Support User)" 제거 (공백 방지)
-        if "Gérant" in df.columns:
-            df["Gérant"] = df["Gérant"].astype(str)
-            df = df[df["Gérant"].str.strip() != "REM4you (Support User)"].reset_index(drop=True)
+# =========================
+# 전처리
+# =========================
+# 1) Support User 제거
+if "Gérant" in df.columns:
+    df["Gérant"] = df["Gérant"].astype(str)
+    df = df[df["Gérant"].str.strip() != "REM4you (Support User)"].reset_index(drop=True)
 
-        # 2) Référence -> 숫자 + Type 생성
-        if "Référence" in df.columns:
-            df["Référence"] = pd.to_numeric(
-                df["Référence"].astype(str).str.replace(r"[^\d]", "", regex=True),
-                errors="coerce"
-            )
-            df["Type"] = df["Référence"].apply(classify_type_from_ref)
-        else:
-            st.warning("⚠️ Colonne 'Référence' absente : 'Type' ne sera pas créé.")
+# 2) Référence → Type
+if "Référence" in df.columns:
+    df["Référence"] = pd.to_numeric(df["Référence"].astype(str).str.replace(r"[^\d]", "", regex=True), errors="coerce")
+    df["Type"] = df["Référence"].apply(classify_type_from_ref)
+else:
+    st.warning("⚠️ Colonne 'Référence' absente : 'Type' ne sera pas créé.")
 
-        # 3) Gérant group 생성
-        if "Gérant" in df.columns:
-            df["Gérant group"] = df["Gérant"].apply(compute_gerant_group)
-        else:
-            st.warning("⚠️ Colonne 'Gérant' introuvable — impossible de créer 'Gérant group'.")
+# 3) Gérant group
+if "Gérant" in df.columns:
+    df["Gérant group"] = df["Gérant"].apply(compute_gerant_group)
+else:
+    st.warning("⚠️ Colonne 'Gérant' introuvable — impossible de créer 'Gérant group'.")
 
-        st.success(f"Fichier chargé : {uploaded_file.name} / Feuille : {sheet}")
+st.success(source_desc)
 
-        # -------------------- Filtres --------------------
-        st.sidebar.header("Filtres")
+# =========================
+# 필터
+# =========================
+st.sidebar.header("Filtres")
+with st.sidebar:
+    if "Gérant" in df.columns:
+        gerant_opts = sorted(df["Gérant"].dropna().astype(str).unique().tolist())
+        gerant_sel = multiselect_with_select_all("Gérant", gerant_opts, key="gerant")
+    else:
+        gerant_sel = None
+        st.info("Colonne 'Gérant' introuvable — filtre désactivé.")
 
-        with st.sidebar:
-            # Gérant
-            if "Gérant" in df.columns:
-                gerant_opts = sorted(df["Gérant"].dropna().astype(str).unique().tolist())
-                gerant_sel = multiselect_with_select_all("Gérant", gerant_opts, key="gerant")
-            else:
-                gerant_sel = None
-                st.info("Colonne 'Gérant' introuvable — filtre désactivé.")
+    if "Type" in df.columns:
+        type_opts = sorted(df["Type"].dropna().astype(str).unique().tolist())
+        type_sel = multiselect_with_select_all("Type", type_opts, key="type")
+    else:
+        type_sel = None
+        st.info("Colonne 'Type' introuvable — filtre désactivé.")
 
-            # Type
-            if "Type" in df.columns:
-                type_opts = sorted(df["Type"].dropna().astype(str).unique().tolist())
-                type_sel = multiselect_with_select_all("Type", type_opts, key="type")
-            else:
-                type_sel = None
-                st.info("Colonne 'Type' introuvable — filtre désactivé.")
+# 필터 적용
+df_filtered = df.copy()
+if gerant_sel is not None:
+    df_filtered = df_filtered[df_filtered["Gérant"].astype(str).isin(gerant_sel)]
+if type_sel is not None and "Type" in df_filtered.columns:
+    df_filtered = df_filtered[df_filtered["Type"].astype(str).isin(type_sel)]
 
-        # 체이닝 필터(인덱스 문제 방지)
-        df_filtered = df.copy()
-        if gerant_sel is not None:
-            df_filtered = df_filtered[df_filtered["Gérant"].astype(str).isin(gerant_sel)]
-        if type_sel is not None and "Type" in df_filtered.columns:
-            df_filtered = df_filtered[df_filtered["Type"].astype(str).isin(type_sel)]
-        
-        st.subheader("Tableau filtré")
-        st.dataframe(df_filtered, use_container_width=True)
+st.subheader("Tableau filtré")
+st.dataframe(df_filtered, use_container_width=True)
 
-        # -------------------- 주소 만들기 --------------------
-        required_cols = ["Désignation", "NPA", "Lieu", "Canton"]
-        missing = [c for c in required_cols if c not in df_filtered.columns]
-        if missing:
-            st.error(f"Colonnes manquantes pour construire l'adresse : {', '.join(missing)}")
-            st.stop()
-        if df_filtered.empty:
-            st.info("Aucune ligne après filtrage.")
-            st.stop()
+# =========================
+# 주소 생성
+# =========================
+required_cols = ["Désignation", "NPA", "Lieu", "Canton"]
+missing = [c for c in required_cols if c not in df_filtered.columns]
+if missing:
+    st.error(f"Colonnes manquantes pour construire l'adresse : {', '.join(missing)}")
+    st.stop()
+if df_filtered.empty:
+    st.info("Aucune ligne après filtrage.")
+    st.stop()
 
-        df_filtered["adresse"] = (
-            df_filtered["Désignation"].astype(str).str.strip() + ", " +
-            df_filtered["NPA"].astype(str).str.strip() + " " +
-            df_filtered["Lieu"].astype(str).str.strip() + ", " +
-            df_filtered["Canton"].astype(str).str.strip() + ", Suisse"
+df_filtered["adresse"] = (
+    df_filtered["Désignation"].astype(str).str.strip() + ", " +
+    df_filtered["NPA"].astype(str).str.strip() + " " +
+    df_filtered["Lieu"].astype(str).str.strip() + ", " +
+    df_filtered["Canton"].astype(str).str.strip() + ", Suisse"
+)
+
+# 좌표 컬럼 보장
+if "latitude" not in df_filtered.columns:
+    df_filtered["latitude"] = np.nan
+if "longitude" not in df_filtered.columns:
+    df_filtered["longitude"] = np.nan
+
+# =========================
+# 기본 좌표 CSV 자동 병합
+# =========================
+try:
+    default_coords = pd.read_csv(DEFAULT_COORDS_CSV_PATH)
+    merged = False
+    if {"adresse","latitude","longitude"}.issubset(default_coords.columns):
+        df_filtered = df_filtered.merge(
+            default_coords[["adresse","latitude","longitude"]],
+            on="adresse", how="left", suffixes=("", "_def")
         )
-
-                # 좌표 컬럼이 없으면 미리 생성
-        if "latitude" not in df_filtered.columns:
-            df_filtered["latitude"] = np.nan
-        if "longitude" not in df_filtered.columns:
-            df_filtered["longitude"] = np.nan
-
-        # -------------------- (옵션) 좌표 CSV 업로드로 재사용 --------------------
-        st.sidebar.markdown("### Recharger des coordonnées (CSV)")
-        coords_file = st.sidebar.file_uploader(
-            "CSV avec 'adresse,latitude,longitude' ou 'Référence,latitude,longitude'",
-            type=["csv"], key="coords_csv"
+        if "latitude_def" in df_filtered.columns and "longitude_def" in df_filtered.columns:
+            df_filtered["latitude"]  = df_filtered["latitude"].fillna(df_filtered["latitude_def"])
+            df_filtered["longitude"] = df_filtered["longitude"].fillna(df_filtered["longitude_def"])
+            df_filtered.drop(columns=["latitude_def","longitude_def"], inplace=True)
+        merged = True
+    if (not merged) and {"Référence","latitude","longitude"}.issubset(default_coords.columns) and "Référence" in df_filtered.columns:
+        df_filtered = df_filtered.merge(
+            default_coords[["Référence","latitude","longitude"]],
+            on="Référence", how="left", suffixes=("", "_def")
         )
-        if coords_file is not None:
-            try:
-                coords_df = pd.read_csv(coords_file)
-                merged = False
-                # 1순위: adresse 기준
-                if {"adresse","latitude","longitude"}.issubset(coords_df.columns):
-                    df_filtered = df_filtered.merge(
-                        coords_df[["adresse","latitude","longitude"]],
-                        on="adresse", how="left", suffixes=("", "_cache")
-                    )
-                    if "latitude_cache" in df_filtered.columns and "longitude_cache" in df_filtered.columns:
-                        df_filtered["latitude"]  = df_filtered.get("latitude")
-                        df_filtered["longitude"] = df_filtered.get("longitude")
-                        df_filtered["latitude"]  = df_filtered["latitude"].fillna(df_filtered["latitude_cache"])
-                        df_filtered["longitude"] = df_filtered["longitude"].fillna(df_filtered["longitude_cache"])
-                        df_filtered.drop(columns=[c for c in ["latitude_cache","longitude_cache"] if c in df_filtered.columns], inplace=True)
-                    merged = True
-                # 2순위: Référence 기준
-                if (not merged) and {"Référence","latitude","longitude"}.issubset(coords_df.columns) and "Référence" in df_filtered.columns:
-                    df_filtered = df_filtered.merge(
-                        coords_df[["Référence","latitude","longitude"]],
-                        on="Référence", how="left", suffixes=("", "_cache")
-                    )
-                    if "latitude_cache" in df_filtered.columns and "longitude_cache" in df_filtered.columns:
-                        df_filtered["latitude"]  = df_filtered.get("latitude")
-                        df_filtered["longitude"] = df_filtered.get("longitude")
-                        df_filtered["latitude"]  = df_filtered["latitude"].fillna(df_filtered["latitude_cache"])
-                        df_filtered["longitude"] = df_filtered["longitude"].fillna(df_filtered["longitude_cache"])
-                        df_filtered.drop(columns=[c for c in ["latitude_cache","longitude_cache"] if c in df_filtered.columns], inplace=True)
-                    merged = True
-                if merged:
-                    st.success("Coordonnées rechargées depuis le CSV. Les lignes manquantes seulement seront géocodées.")
-                else:
-                    st.sidebar.warning("CSV에 'adresse,latitude,longitude' 또는 'Référence,latitude,longitude' 컬럼이 필요합니다.")
-            except Exception as e:
-                st.sidebar.error(f"좌표 CSV 로드 오류: {e}")
+        if "latitude_def" in df_filtered.columns and "longitude_def" in df_filtered.columns:
+            df_filtered["latitude"]  = df_filtered["latitude"].fillna(df_filtered["latitude_def"])
+            df_filtered["longitude"] = df_filtered["longitude"].fillna(df_filtered["longitude_def"])
+            df_filtered.drop(columns=["latitude_def","longitude_def"], inplace=True)
+        merged = True
+    if merged:
+        st.success("Coordonnées par défaut appliquées.")
+except FileNotFoundError:
+    st.warning(f"CSV lat/lon par défaut introuvable: {DEFAULT_COORDS_CSV_PATH}")
+except Exception as e:
+    st.warning(f"Impossible de fusionner le CSV par défaut: {e}")
 
-        # -------------------- Google 지오코딩 (버튼 + 제한) --------------------
-        st.subheader("Géocodage Google Maps")
-        limit = st.slider("Limiter le nombre d'adresses à géocoder maintenant", 10, 1000, 200, 10)
-
-        need_geo = df_filtered[
-            df_filtered["adresse"].notna() &
-            (
-                ("latitude" not in df_filtered.columns) |
-                ("longitude" not in df_filtered.columns) |
-                df_filtered["latitude"].isna() | df_filtered["longitude"].isna()
+# =========================
+# (옵션) 좌표 CSV 업로드로 추가 재사용
+# =========================
+st.sidebar.markdown("### Recharger des coordonnées (CSV)")
+coords_file = st.sidebar.file_uploader(
+    "CSV avec 'adresse,latitude,longitude' ou 'Référence,latitude,longitude'",
+    type=["csv"], key="coords_csv"
+)
+if coords_file is not None:
+    try:
+        coords_df = pd.read_csv(coords_file)
+        merged = False
+        if {"adresse","latitude","longitude"}.issubset(coords_df.columns):
+            df_filtered = df_filtered.merge(
+                coords_df[["adresse","latitude","longitude"]],
+                on="adresse", how="left", suffixes=("", "_cache")
             )
-        ].copy()
-
-        to_geocode = need_geo["adresse"].dropna().unique().tolist()[:limit]
-
-        col1, col2 = st.columns(2)
-        with col1:
-            st.write(f"Adresses sans coordonnées (sélection) : **{len(to_geocode)}**")
-        with col2:
-            start_geo = st.button("🚀 Lancer le géocodage Google")
-
-        if start_geo:
-            if not api_key:
-                st.error("Veuillez saisir votre **Google Maps API Key**.")
-                st.stop()
-            mapping = gmaps_geocode_batch(tuple(to_geocode), api_key)
-
-            # 좌표 갱신
-            df_filtered["latitude"]  = df_filtered.get("latitude")
-            df_filtered["longitude"] = df_filtered.get("longitude")
-            mask_map = df_filtered["adresse"].isin(mapping.keys())
-            df_filtered.loc[mask_map, "latitude"]  = df_filtered.loc[mask_map, "adresse"].map(lambda a: mapping.get(a,(None,None))[0])
-            df_filtered.loc[mask_map, "longitude"] = df_filtered.loc[mask_map, "adresse"].map(lambda a: mapping.get(a,(None,None))[1])
-            st.success("Géocodage Google terminé pour le lot courant.")
-
-        # -------------------- 지도 최종 표시 + CSV 다운로드 --------------------
-        plotted_final = df_filtered.dropna(subset=["latitude","longitude"]).copy()
-        st.markdown("### Carte (mise à jour)")
-        if not plotted_final.empty:
-            # 색상 키 결정 & 색상 적용
-            color_key = "Gérant group" if "Gérant group" in plotted_final.columns else ("Gérant" if "Gérant" in plotted_final.columns else None)
-            keys_final, cmap_final = assign_colors(plotted_final, color_key)
-
-            # (툴팁에 쓰는 필드 보정)
-            required_for_tooltip = [
-                "Gérant", "Gérant group", "Type", "adresse",
-                "Nombre total d'appartements", "Nombre total d'entreprises", "Propriétaire"
-            ]
-            for c in required_for_tooltip:
-                if c not in plotted_final.columns:
-                    plotted_final[c] = ""
-
-            view_state2 = pdk.ViewState(
-                latitude=safe_mean(plotted_final["latitude"], 46.8182),
-                longitude=safe_mean(plotted_final["longitude"], 8.2275),
-                zoom=9
+            if "latitude_cache" in df_filtered.columns and "longitude_cache" in df_filtered.columns:
+                df_filtered["latitude"]  = df_filtered["latitude"].fillna(df_filtered["latitude_cache"])
+                df_filtered["longitude"] = df_filtered["longitude"].fillna(df_filtered["longitude_cache"])
+                df_filtered.drop(columns=["latitude_cache","longitude_cache"], inplace=True)
+            merged = True
+        if (not merged) and {"Référence","latitude","longitude"}.issubset(coords_df.columns) and "Référence" in df_filtered.columns:
+            df_filtered = df_filtered.merge(
+                coords_df[["Référence","latitude","longitude"]],
+                on="Référence", how="left", suffixes=("", "_cache")
             )
-            layer2 = pdk.Layer(
-                "ScatterplotLayer",
-                data=plotted_final,
-                get_position='[longitude, latitude]',
-                get_fill_color="color",
-                get_radius=200,
-                pickable=True,
-            )
-            st.pydeck_chart(pdk.Deck(
-                layers=[layer2],
-                initial_view_state=view_state2,
-                tooltip={
-                    "html": TOOLTIP_HTML,
-                    "style": {"backgroundColor":"rgba(255,255,255,0.95)", "color":"black"}
-                }
-            ))
-
-            # 표 형태 레전드
-            legend_title_final = color_key if color_key else "Catégorie"
-            render_table_legend(keys_final, cmap_final, f"Légende — {legend_title_final}", cols_per_row=4)
-
-            # (CSV 다운로드 부분은 그대로 유지)
-        else:
-            st.info("Aucun point avec coordonnées pour l’instant. Lancez le géocodage Google ou vérifiez vos filtres.")
-
+            if "latitude_cache" in df_filtered.columns and "longitude_cache" in df_filtered.columns:
+                df_filtered["latitude"]  = df_filtered["latitude"].fillna(df_filtered["latitude_cache"])
+                df_filtered["longitude"] = df_filtered["longitude"].fillna(df_filtered["longitude_cache"])
+                df_filtered.drop(columns=["latitude_cache","longitude_cache"], inplace=True)
+            merged = True
+        if merged:
+            st.success("Coordonnées rechargées depuis le CSV (upload).")
     except Exception as e:
-        st.error(f"Erreur : {e}")
+        st.sidebar.error(f"Erreur CSV coords: {e}")
+
+# =========================
+# Google 지오코딩 (결측만)
+# =========================
+st.subheader("Géocodage Google Maps (compléter les manquants)")
+limit = st.slider("Limiter le nombre d'adresses à géocoder maintenant", 10, 1000, 200, 10)
+
+need_geo = df_filtered[
+    df_filtered["adresse"].notna() &
+    (
+        ("latitude" not in df_filtered.columns) |
+        ("longitude" not in df_filtered.columns) |
+        df_filtered["latitude"].isna() | df_filtered["longitude"].isna()
+    )
+].copy()
+
+to_geocode = need_geo["adresse"].dropna().unique().tolist()[:limit]
+
+col1, col2 = st.columns(2)
+with col1:
+    st.write(f"Adresses sans coordonnées (sélection) : **{len(to_geocode)}**")
+with col2:
+    start_geo = st.button("🚀 Lancer le géocodage Google")
+
+if start_geo:
+    if not api_key:
+        st.error("Veuillez saisir votre **Google Maps API Key**.")
+        st.stop()
+    mapping = gmaps_geocode_batch(tuple(to_geocode), api_key)
+    mask_map = df_filtered["adresse"].isin(mapping.keys())
+    df_filtered.loc[mask_map, "latitude"]  = df_filtered.loc[mask_map, "adresse"].map(lambda a: mapping.get(a,(None,None))[0])
+    df_filtered.loc[mask_map, "longitude"] = df_filtered.loc[mask_map, "adresse"].map(lambda a: mapping.get(a,(None,None))[1])
+    st.success("Géocodage Google terminé pour le lot courant.")
+
+# =========================
+# 최종 지도 + 레전드 + CSV 다운로드
+# =========================
+plotted_final = df_filtered.dropna(subset=["latitude","longitude"]).copy()
+st.markdown("### Carte (mise à jour)")
+if not plotted_final.empty:
+    color_key = "Gérant group" if "Gérant group" in plotted_final.columns else ("Gérant" if "Gérant" in plotted_final.columns else None)
+    keys_final, cmap_final = assign_colors(plotted_final, color_key)
+
+    # 툴팁 필드 보정
+    for c in ["Gérant","Gérant group","Type","adresse","Nombre total d'appartements","Nombre total d'entreprises","Propriétaire"]:
+        if c not in plotted_final.columns:
+            plotted_final[c] = ""
+
+    view_state2 = pdk.ViewState(
+        latitude=safe_mean(plotted_final["latitude"], 46.8182),
+        longitude=safe_mean(plotted_final["longitude"], 8.2275),
+        zoom=9
+    )
+    layer2 = pdk.Layer(
+        "ScatterplotLayer",
+        data=plotted_final,
+        get_position='[longitude, latitude]',
+        get_fill_color="color",
+        get_radius=200,      # 점 크기 — 필요시 조절
+        pickable=True,
+    )
+    st.pydeck_chart(pdk.Deck(
+        layers=[layer2],
+        initial_view_state=view_state2,
+        tooltip={"html": TOOLTIP_HTML, "style": {"backgroundColor":"rgba(255,255,255,0.95)", "color":"black"}}
+    ))
+
+    legend_title_final = color_key if color_key else "Catégorie"
+    render_table_legend(keys_final, cmap_final, f"Légende — {legend_title_final}", cols_per_row=4)
+
+    # 좌표 CSV 다운로드
+    st.markdown("### Télécharger les coordonnées")
+    save_cols = [c for c in [
+        "Référence","Gérant","Gérant group","Type",
+        "Désignation","NPA","Lieu","Canton",
+        "adresse","latitude","longitude",
+        "Nombre total d'appartements","Nombre total d'entreprises","Propriétaire"
+    ] if c in plotted_final.columns]
+    export_df = plotted_final[save_cols].copy()
+    st.download_button(
+        label="⬇️ Télécharger CSV (lat/lon inclus)",
+        data=export_df.to_csv(index=False).encode("utf-8"),
+        file_name="rilsa_coords.csv",
+        mime="text/csv"
+    )
+else:
+    st.info("Aucun point avec coordonnées pour l’instant. Lancez le géocodage Google ou vérifiez vos filtres.")
