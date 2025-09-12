@@ -43,8 +43,9 @@ data = pd.read_csv(csv_data, sep=',', encoding='utf-8')
 xls = pd.ExcelFile(DEFAULT_EXCEL_PATH, engine="openpyxl")
 df_group = pd.read_excel(xls, sheet_name=sheet_name)
 
-# merge data and df_group on 'Display Name'
-data = pd.merge(data, df_group[['Display Name']], on='Display Name', how='left')
+# add a new column 'Group' to data which is from df_group 'Display Name' and 'Group'
+data = pd.merge(data, df_group[['Display Name', 'Group']], on='Display Name', how='left')
+data['Group'] = data['Group'].fillna('No Group')
 
 # =========================
 # Show dataframe
