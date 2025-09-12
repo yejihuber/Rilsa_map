@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import pydeck as pdk
+import altair as alt
 
 # =========================
 # 기본 데이터 경로(원하는 경로로 바꿔도 됨)
@@ -80,7 +81,7 @@ merged_data = pd.merge(
 # =========================
 # visualize data as bar chart : Send Count and Receive Count par personne
 # =========================
-st.header("1. charge email par personne")
+st.header("Charge email par personne")
 
 # 1) 집계 (이름별 합계)
 bar_data = (
@@ -102,3 +103,17 @@ st.bar_chart(
     use_container_width=True
 )
 
+chart = (
+    alt.Chart(bar_data)
+    .transform_fold(['send_count', 'receive_count'], as_=['Type', 'Count'])
+    .mark_bar()
+    .encode(
+        x=alt.X('Display Name_csv:N', sort='-y', title='Personne'),
+        y=alt.Y('Count:Q', title="Nombre d'e-mails"),
+        color='Type:N',
+        tooltip=['Display Name_csv', 'Type', 'Count']
+    )
+    .properties(height=500)
+)
+
+st.altair_chart(chart, use_container_width=True)
