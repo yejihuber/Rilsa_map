@@ -1,7 +1,5 @@
 streamlit
 pandas
 openpyxl
-geopy
+requests
 pydeck
-geopandas
-shapely
