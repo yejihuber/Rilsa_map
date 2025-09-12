@@ -27,7 +27,20 @@ else:
     csv_data = DEFAULT_CSV_PATH
     sheet_name = DEFAULT_SHEET_NAME
 st.sidebar.markdown(f"Using default CSV file: `{DEFAULT_CSV_PATH}`")
-st.sidebar.markdown(f"Using default sheet name: `{DEFAULT_SHEET_NAME}`")
 st.sidebar.markdown("---")
 
+# =========================
+# 데이터 로드
+# =========================
+@st.cache_data
+def load_data(csv_data, sheet_name):
+    if sheet_name:
+        df = pd.read_excel(csv_data, sheet_name=sheet_name)
+    else:
+        df = pd.read_csv(csv_data)
+    return df
+data = load_data(csv_data, sheet_name)
+st.write(f"Data Shape: {data.shape}")
+st.dataframe(data.head(5))
+st.markdown("---")
 
