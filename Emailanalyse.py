@@ -43,13 +43,13 @@ data = pd.read_csv(csv_data, sep=',', encoding='utf-8')
 xls = pd.ExcelFile(DEFAULT_EXCEL_PATH, engine="openpyxl")
 df_group = pd.read_excel(xls, sheet_name=sheet_name)
 
-# add a new column 'Group' to data which is from df_group 'Display Name' and 'Group'
-data = pd.merge(data, df_group[['Display Name', 'Group']], on='Display Name', how='left')
-data['Group'] = data['Group'].fillna('No Group')
-
 # =========================
-# Show dataframe
+# 데이터 표시
 # =========================
-st.header("2. Data Overview")
+st.header("1. Data Overview")
+st.subheader("1.1 Email Data")  
 st.write(data)
-
+st.subheader("1.2 Group Data")
+st.write(df_group)
+st.markdown("---")
+# =========================
