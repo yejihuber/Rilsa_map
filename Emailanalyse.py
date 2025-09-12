@@ -98,7 +98,7 @@ bar_data = bar_data.sort_values('receive_count', ascending=False)
 # 3) 스트림릿 차트 (x는 문자열 1개, y는 리스트)
 st.bar_chart(
     bar_data,
-    x='Display Name',
+    x='Display Name_csv',
     y=['send_count', 'receive_count'],
     use_container_width=True
 )
