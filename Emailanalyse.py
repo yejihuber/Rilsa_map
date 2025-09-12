@@ -89,100 +89,90 @@ else:
     st.warning("no 'Group' on the Excel file.")
 
 # =========================
-# visualize data as bar chart : Send Count vs Receive Count par personne
+# 1. Personne별 차트 (envoyé / reçu)
 # =========================
-st.header("Charge e-mails par personne")
+st.header("1. Charge e-mails par personne")
 
-# 1) 집계
 bar_data = (
     merged_data
     .groupby('Display Name_csv', as_index=False)
-    .agg(send_count=('Send Count', 'sum'),
-         receive_count=('Receive Count', 'sum'))
-    .fillna({'send_count': 0, 'receive_count': 0})
+    .agg(envoyé=('Send Count', 'sum'),
+         reçu=('Receive Count', 'sum'))
+    .fillna({'envoyé': 0, 'reçu': 0})
 )
 
-# 2) 사람 선택 위젯
+# 사람 선택
 all_names = bar_data['Display Name_csv'].unique().tolist()
 selected_names = st.multiselect(
-    "Choisissez les personnes à afficher :", 
+    "Choisissez les personnes à afficher :",
     options=all_names,
-    default=all_names[:10]  # 기본값: 처음 10명만 표시
+    default=all_names[:10]
 )
-
-# 선택된 사람만 필터링
 if selected_names:
     bar_data = bar_data[bar_data['Display Name_csv'].isin(selected_names)]
 
-# 3) Wide → Long 변환
 bar_data_long = bar_data.melt(
     id_vars='Display Name_csv',
     value_vars=['envoyé', 'reçu'],
     var_name='Type',
-    value_name='Count'
+    value_name='Nombre'
 )
 
-# 4) Altair grouped bar chart
 chart = (
     alt.Chart(bar_data_long)
     .mark_bar()
     .encode(
         x=alt.X('Display Name_csv:N', sort='-y', title='Personne'),
-        y=alt.Y('Count:Q', title="Nombre d'e-mails"),
+        y=alt.Y('Nombre:Q', title="Nombre d'e-mails"),
         color=alt.Color('Type:N', title='Type'),
-        xOffset='Type',   # send/receive 나란히
-        tooltip=['Display Name_csv', 'Type', 'Count']
+        xOffset='Type',
+        tooltip=['Display Name_csv', 'Type', 'Nombre']
     )
     .properties(width=800, height=500)
 )
 
 st.altair_chart(chart, use_container_width=True)
 
-# =========================
-# 2. Groupe별 Send / Receive 바차트
-# =========================
-st.header("Charge e-mails par groupe")
 
-# 1) group 컬럼 확인
+# =========================
+# 2. Groupe별 차트 (envoyé / reçu)
+# =========================
+st.header("2. Charge e-mails par groupe")
+
 if "Group" in merged_data.columns:
     group_bar = (
         merged_data
         .groupby('Group', as_index=False)
-        .agg(send_count=('Send Count', 'sum'),
-             receive_count=('Receive Count', 'sum'))
-        .fillna({'send_count': 0, 'receive_count': 0})
+        .agg(envoyé=('Send Count', 'sum'),
+             reçu=('Receive Count', 'sum'))
+        .fillna({'envoyé': 0, 'reçu': 0})
     )
 
-    # 2) 그룹 선택 위젯
     all_groups = group_bar['Group'].unique().tolist()
     selected_groups = st.multiselect(
         "Choisissez les groupes à afficher :",
         options=all_groups,
-        default=all_groups  # 기본값: 전체 그룹
+        default=all_groups
     )
-
-    # 선택된 그룹만 필터링
     if selected_groups:
         group_bar = group_bar[group_bar['Group'].isin(selected_groups)]
 
-    # 3) Wide → Long 변환
     group_bar_long = group_bar.melt(
         id_vars='Group',
         value_vars=['envoyé', 'reçu'],
         var_name='Type',
-        value_name='Count'
+        value_name='Nombre'
     )
 
-    # 4) Altair grouped bar chart
     chart_group = (
         alt.Chart(group_bar_long)
         .mark_bar()
         .encode(
             x=alt.X('Group:N', sort='-y', title='Groupe'),
-            y=alt.Y('Count:Q', title="Nombre d'e-mails"),
+            y=alt.Y('Nombre:Q', title="Nombre d'e-mails"),
             color=alt.Color('Type:N', title='Type'),
             xOffset='Type',
-            tooltip=['Group', 'Type', 'Count']
+            tooltip=['Group', 'Type', 'Nombre']
         )
         .properties(width=800, height=500)
     )
