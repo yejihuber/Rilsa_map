@@ -154,28 +154,50 @@ st.altair_chart(chart, use_container_width=True)
 
 
 # =========================
-# 2. Groupe별 차트 (envoyé / reçu)
+# 2. Groupe별 차트 (envoyé / reçu) + 전체 선택 버튼
 # =========================
 st.header("2. Charge e-mails par groupe")
 
 if "Group" in merged_data.columns:
+    # 1) 집계 후 프랑스어 라벨로 변경
     group_bar = (
         merged_data
         .groupby('Group', as_index=False)
-        .agg(envoyé=('Send Count', 'sum'),
-             reçu=('Receive Count', 'sum'))
+        .agg({"Send Count": "sum", "Receive Count": "sum"})
+        .rename(columns={"Send Count": "envoyé", "Receive Count": "reçu"})
         .fillna({'envoyé': 0, 'reçu': 0})
     )
 
+    # 2) 그룹 선택 위젯 + 전체 선택 체크박스
     all_groups = group_bar['Group'].unique().tolist()
-    selected_groups = st.multiselect(
-        "Choisissez les groupes à afficher :",
-        options=all_groups,
-        default=all_groups
-    )
+
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        select_all_groups = st.checkbox("Tout sélectionner", value=True, key="select_all_groups")
+
+    with col2:
+        if select_all_groups:
+            selected_groups = st.multiselect(
+                "Choisissez les groupes à afficher :",
+                options=all_groups,
+                default=all_groups,
+                key="group_multiselect"
+            )
+        else:
+            selected_groups = st.multiselect(
+                "Choisissez les groupes à afficher :",
+                options=all_groups,
+                key="group_multiselect"
+            )
+
+    # 3) 선택된 그룹만 필터링
     if selected_groups:
         group_bar = group_bar[group_bar['Group'].isin(selected_groups)]
+    else:
+        st.info("Aucun groupe sélectionné.")
+        st.stop()
 
+    # 4) Wide → Long 변환
     group_bar_long = group_bar.melt(
         id_vars='Group',
         value_vars=['envoyé', 'reçu'],
@@ -183,6 +205,7 @@ if "Group" in merged_data.columns:
         value_name='Nombre'
     )
 
+    # 5) Altair grouped bar chart (그룹별 envoyé/reçu 나란히)
     chart_group = (
         alt.Chart(group_bar_long)
         .mark_bar()
@@ -198,4 +221,4 @@ if "Group" in merged_data.columns:
 
     st.altair_chart(chart_group, use_container_width=True)
 else:
-    st.warning("no 'Group' on the Excel file.")
+    st.warning("⚠️ no 'Group' on the Excel file.")
