@@ -12,5 +12,6 @@ st.sidebar.success("Select a demo above.")
 st.markdown(
     """
     - [RILSA map](https://rilsamap.streamlit.app/)
+    - [RILSA email data analyse](https://rilsaemail.streamlit.app/)
 """
 )
