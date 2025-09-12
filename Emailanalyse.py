@@ -143,13 +143,16 @@ chart = (
     .encode(
         x=alt.X('Display Name_csv:N', sort='-y', title='Personne'),
         y=alt.Y('Nombre:Q', title="Nombre d'e-mails"),
-        color=alt.Color('Type:N', title='Type'),
-        xOffset='Type',
+        color=alt.Color(
+            'Type:N',
+            title='Type',
+            scale=alt.Scale(domain=['reçu', 'envoyé'])  # ← 범례/색 순서 고정
+        ),
+        xOffset=alt.XOffset('Type:N', sort=['reçu', 'envoyé']),  # ← 막대 나란히 순서 고정
         tooltip=['Display Name_csv', 'Type', 'Nombre']
     )
     .properties(width=800, height=500)
 )
-
 st.altair_chart(chart, use_container_width=True)
 
 
@@ -211,18 +214,21 @@ if "Group" in merged_data.columns:
 
     # 6) Altair grouped bar chart
     chart_group = (
-        alt.Chart(group_bar_long)
-        .mark_bar()
-        .encode(
-            x=alt.X('Group:N', sort='-y', title='Groupe'),
-            y=alt.Y('Nombre:Q', title="Nombre d'e-mails"),
-            color=alt.Color('Type:N', title='Type'),
-            xOffset='Type',
-            tooltip=['Group', 'Type', 'Nombre']
-        )
-        .properties(width=800, height=500)
+    alt.Chart(group_bar_long)
+    .mark_bar()
+    .encode(
+        x=alt.X('Group:N', sort='-y', title='Groupe'),
+        y=alt.Y('Nombre:Q', title="Nombre d'e-mails"),
+        color=alt.Color(
+            'Type:N',
+            title='Type',
+            scale=alt.Scale(domain=['reçu', 'envoyé'])  # ← 순서 고정
+        ),
+        xOffset=alt.XOffset('Type:N', sort=['reçu', 'envoyé']),  # ← 순서 고정
+        tooltip=['Group', 'Type', 'Nombre']
     )
-
+    .properties(width=800, height=500)
+)
     st.altair_chart(chart_group, use_container_width=True)
 else:
     st.warning("⚠️ no 'Group' on the Excel file.")
