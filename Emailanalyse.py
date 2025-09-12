@@ -98,22 +98,7 @@ bar_data = bar_data.sort_values('receive_count', ascending=False)
 # 3) 스트림릿 차트 (x는 문자열 1개, y는 리스트)
 st.bar_chart(
     bar_data,
-    x='Display Name_csv',
+    x='Display Name',
     y=['send_count', 'receive_count'],
     use_container_width=True
 )
-
-chart = (
-    alt.Chart(bar_data)
-    .transform_fold(['send_count', 'receive_count'], as_=['Type', 'Count'])
-    .mark_bar()
-    .encode(
-        x=alt.X('Display Name_csv:N', sort='-y', title='Personne'),
-        y=alt.Y('Count:Q', title="Nombre d'e-mails"),
-        color='Type:N',
-        tooltip=['Display Name_csv', 'Type', 'Count']
-    )
-    .properties(height=500)
-)
-
-st.altair_chart(chart, use_container_width=True)
