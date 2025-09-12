@@ -36,36 +36,40 @@ st.sidebar.markdown("---")
 # =========================
 # 데이터 로드
 # =========================
-# CSV 파일 읽기
+# CSV
 data = pd.read_csv(csv_data, sep=',', encoding='utf-8')
 
-# Excel 파일 읽기 (첫 시트 or 지정된 시트)
+# Excel (첫 시트 선택 로직 포함)
 xls = pd.ExcelFile(DEFAULT_EXCEL_PATH, engine="openpyxl")
-group_data = xls.parse(sheet_name=sheet_name)
+if sheet_name is None:
+    sheet_to_use = xls.sheet_names[0]   # 첫 시트
+else:
+    sheet_to_use = sheet_name
+
+group_data = xls.parse(sheet_name=sheet_to_use)
 
 # =========================
-# 데이터 병합
+# 병합
 # =========================
-# 공통 컬럼 "Display name" 기준으로 merge
 merged_data = pd.merge(
     data,
     group_data,
-    on="Display Name",      # 공통 키
-    how="left"              # left join → CSV 기준으로 Excel 데이터 붙임
-)
+    on="_key",
+    how="left",
+    suffixes=("_csv", "_xlsx")
+).drop(columns=["_key"])
 
 # =========================
-# 데이터 표시
+# 표시
 # =========================
 st.header("1. Data Overview")
-st.subheader("1.1 Email Data")  
+st.subheader("1.1 Email Data")
 st.write(data)
 
-st.subheader("1.2 Group Data")
+st.subheader(f"1.2 Group Data (sheet: {sheet_to_use})")
 st.write(group_data)
 
 st.subheader("1.3 Merged Data (CSV + Excel)")
 st.write(merged_data)
 
 st.markdown("---")
-
