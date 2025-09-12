@@ -50,7 +50,7 @@ group_data = xls.parse(sheet_name=sheet_name)
 merged_data = pd.merge(
     data,
     group_data,
-    on="Display name",      # 공통 키
+    on="Display Name",      # 공통 키
     how="left"              # left join → CSV 기준으로 Excel 데이터 붙임
 )
 
