@@ -117,7 +117,7 @@ if selected_names:
 # 3) Wide → Long 변환
 bar_data_long = bar_data.melt(
     id_vars='Display Name_csv',
-    value_vars=['Envoyé', 'Reçu'],
+    value_vars=['send_count', 'receive_count'],
     var_name='Type',
     value_name='Count'
 )
@@ -168,7 +168,7 @@ if "Group" in merged_data.columns:
     # 3) Wide → Long 변환
     group_bar_long = group_bar.melt(
         id_vars='Group',
-        value_vars=['Envoyé', 'Reçu'],
+        value_vars=['send_count', 'receive_count'],
         var_name='Type',
         value_name='Count'
     )
