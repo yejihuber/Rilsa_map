@@ -97,9 +97,9 @@ st.header("1. Charge e-mails par personne")
 bar_data = (
     merged_data
     .groupby('Display Name_csv', as_index=False)
-    .agg({"Send Count": "sum", "Receive Count": "sum"})
-    .rename(columns={"Send Count": "envoyé", "Receive Count": "reçu"})
-    .fillna({'envoyé': 0, 'reçu': 0})
+    .agg({"Receive Count": "sum","Send Count": "sum"})
+    .rename(columns={"Receive Count": "reçu", "Send Count": "envoyé"})
+    .fillna({'reçu': 0, 'envoyé': 0})
 )
 
 # 2) 모든 이름 리스트
