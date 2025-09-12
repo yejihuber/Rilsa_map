@@ -230,7 +230,6 @@ else:
 # =========================
 # 3. Groupe별 스택 바차트 (envoyé + reçu, 한 막대에 색으로 구분)
 # =========================
-st.header("3. Répartition envoyé/reçu par groupe (barre empilée)")
 
 # group_bar는 2번 차트에서 이미 집계·필터된 DataFrame이며,
 # 컬럼: ['Group', 'envoyé', 'reçu'] 형태라고 가정
