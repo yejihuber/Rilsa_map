@@ -44,7 +44,7 @@ xls = pd.ExcelFile(DEFAULT_EXCEL_PATH, engine="openpyxl")
 df_group = pd.read_excel(xls, sheet_name=sheet_name)
 
 # merge data and df_group on 'Display Name'
-data = pd.merge(data, df_group[['Display Name', 'Group']], on='Display Name', how='left')
+data = pd.merge(data, df_group[['Display Name']], on='Display Name', how='left')
 
 # =========================
 # Show dataframe
