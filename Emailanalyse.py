@@ -1,4 +1,6 @@
+from csv import excel
 import io
+from unittest.mock import DEFAULT
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -8,6 +10,7 @@ import pydeck as pdk
 # 기본 데이터 경로(원하는 경로로 바꿔도 됨)
 # =========================
 DEFAULT_CSV_PATH = "EmailActivityUserDetail9_11_2025 3_44_29 PM.csv"        # 기본 CSV
+DEFAULT_EXCEL_PATH = "Group.xlsx"  # 기본 Excel
 DEFAULT_SHEET_NAME = None  # None이면 첫 시트
 
 st.set_page_config(page_title="RILSA Email", layout="wide")
@@ -24,23 +27,28 @@ if uploaded_file is not None:
     sheet_name = None
 else:
     # 업로드된 파일이 없으면 기본 파일 사용
-    csv_data = DEFAULT_CSV_PATH
+    csv_data = DEFAULT_CSV_PATH 
+    excel_data = DEFAULT_EXCEL_PATH
     sheet_name = DEFAULT_SHEET_NAME
 st.sidebar.markdown(f"Using default CSV file: `{DEFAULT_CSV_PATH}`")
 st.sidebar.markdown("---")
 
 # =========================
-# 데이터 로드
+# data treatment
 # =========================
-@st.cache_data
-def load_data(csv_data, sheet_name):
-    if sheet_name:
-        df = pd.read_excel(csv_data, sheet_name=sheet_name)
-    else:
-        df = pd.read_csv(csv_data)
-    return df
-data = load_data(csv_data, sheet_name)
-st.write(f"Data Shape: {data.shape}")
-st.dataframe(data.head(5))
-st.markdown("---")
+# CSV 파일 읽기
+data = pd.read_csv(csv_data, sep=',', encoding='utf-8')
 
+# Excel 파일 읽기
+excel_df = pd.read_excel(excel_data, sheet_name=sheet_name)
+
+# fusion des deux dataframes sur la colonne 'Display Name'
+data = pd.merge(data, excel_df[['Display Name']], on='Display Name', how='left')
+
+# =========================
+# 메인 페이지 - 데이터 표시
+# =========================
+st.header("2. Data Overview")
+st.subheader("Raw Data")
+st.write(data)
+st.markdown("---")
