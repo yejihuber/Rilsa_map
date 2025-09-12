@@ -226,3 +226,43 @@ if "Group" in merged_data.columns:
     st.altair_chart(chart_group, use_container_width=True)
 else:
     st.warning("⚠️ no 'Group' on the Excel file.")
+
+# =========================
+# 3. Groupe별 스택 바차트 (envoyé + reçu, 한 막대에 색으로 구분)
+# =========================
+st.header("3. Répartition envoyé/reçu par groupe (barre empilée)")
+
+# group_bar는 2번 차트에서 이미 집계·필터된 DataFrame이며,
+# 컬럼: ['Group', 'envoyé', 'reçu'] 형태라고 가정
+
+# 정렬을 위해 총합 컬럼 추가(표시는 안 함)
+group_bar = group_bar.copy()
+group_bar["Total"] = group_bar["envoyé"] + group_bar["reçu"]
+
+# Long 형식으로 변환
+group_bar_long3 = group_bar.melt(
+    id_vars="Group",
+    value_vars=["envoyé", "reçu"],
+    var_name="Type",
+    value_name="Nombre"
+)
+
+# 스택형 바차트 (한 막대에 두 색상)
+chart_group_stacked = (
+    alt.Chart(group_bar_long3)
+    .mark_bar()
+    .encode(
+        x=alt.X(
+            "Group:N",
+            title="Groupe",
+            sort=alt.SortField(field="Total", order="descending")  # 총합 기준 내림차순 정렬
+        ),
+        y=alt.Y("Nombre:Q", title="Nombre d'e-mails", stack="zero"),
+        color=alt.Color("Type:N", title="Type"),
+        tooltip=["Group", "Type", "Nombre"]
+    )
+    .properties(width=800, height=500)
+)
+
+st.altair_chart(chart_group_stacked, use_container_width=True)
+
