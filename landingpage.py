@@ -11,6 +11,6 @@ st.sidebar.success("Select a demo above.")
 
 st.markdown(
     """
-    - [RILSA map](https://github.com/yejihuber/Rilsa_map/blob/main/streamlit_app.py)
+    - [RILSA map](https://rilsamap.streamlit.app/)
 """
 )
