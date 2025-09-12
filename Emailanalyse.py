@@ -55,13 +55,13 @@ def _norm_key(series):
     return series.astype(str).str.strip().str.casefold()
 
 # 컬럼 존재 확인 (없으면 명확한 에러 메시지)
-if "Display name" not in data.columns:
-    raise KeyError("CSV에 'Display name' 컬럼이 없습니다.")
-if "Display name" not in group_data.columns:
-    raise KeyError(f"Excel 시트('{sheet_to_use}')에 'Display name' 컬럼이 없습니다.")
+if "Display Name" not in data.columns:
+    raise KeyError("CSV에 'Display Name' 컬럼이 없습니다.")
+if "Display Name" not in group_data.columns:
+    raise KeyError(f"Excel 시트('{sheet_to_use}')에 'Display Name' 컬럼이 없습니다.")
 
-data["_key"] = _norm_key(data["Display name"])
-group_data["_key"] = _norm_key(group_data["Display name"])
+data["_key"] = _norm_key(data["Display Name"])
+group_data["_key"] = _norm_key(group_data["Display Name"])
 
 # 그룹 데이터에서 중복 키 제거(있다면 첫 번째만 사용)
 group_data = group_data.drop_duplicates(subset=["_key"], keep="first")
