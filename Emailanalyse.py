@@ -41,7 +41,6 @@ data = pd.read_csv(csv_data, sep=',', encoding='utf-8')
 
 # Excel 파일 읽기
 xls = pd.ExcelFile(DEFAULT_EXCEL_PATH, engine="openpyxl")
-df_group = pd.read_excel(xls, sheet_name=sheet_name)
 
 # =========================
 # 데이터 표시
@@ -50,6 +49,6 @@ st.header("1. Data Overview")
 st.subheader("1.1 Email Data")  
 st.write(data)
 st.subheader("1.2 Group Data")
-st.write(df_group)
+st.write(xls.parse(sheet_name=sheet_name))
 st.markdown("---")
 # =========================
