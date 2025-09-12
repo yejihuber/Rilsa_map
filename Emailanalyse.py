@@ -78,16 +78,14 @@ merged_data = pd.merge(
 ).drop(columns=["_key"])
 
 # =========================
-# 표시
+# visualize data as bar chart : Send Count and Receive Count par personne 
 # =========================
-st.header("1. Data Overview")
-st.subheader("1.1 Email Data")
-st.write(data)
-
-st.subheader(f"1.2 Group Data (sheet: {sheet_to_use})")
-st.write(group_data)
-
-st.subheader("1.3 Merged Data (CSV + Excel)")
-st.write(merged_data)
-
+st.header("1. charge email par personne")
+bar_data = merged_data.groupby('Display Name_csv').agg(
+    send_count=('Send Count', 'sum'),
+    receive_count=('Receive Count', 'sum')
+).reset_index()
+st.bar_chart(bar_data, x='Display Name_csv', y=['send_count', 'receive_count'])
+st.dataframe(bar_data)
 st.markdown("---")
+# =========================
