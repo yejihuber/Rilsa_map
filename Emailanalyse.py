@@ -131,10 +131,9 @@ st.altair_chart(chart, use_container_width=True)
 # =========================
 # 2. Groupe별 Send / Receive 바차트
 # =========================
-st.header("2. Charge e-mails par groupe")
+st.header("Charge e-mails par groupe")
 
-# 1) group 컬럼 확인 (엑셀 데이터에 들어있는 그룹명 컬럼명 확인 필요)
-# 예시: group_data 안에 "Group" 이라는 컬럼이 있다고 가정
+# 1) group 컬럼 확인
 if "Group" in merged_data.columns:
     group_bar = (
         merged_data
@@ -144,7 +143,19 @@ if "Group" in merged_data.columns:
         .fillna({'send_count': 0, 'receive_count': 0})
     )
 
-    # 2) Wide → Long 변환
+    # 2) 그룹 선택 위젯
+    all_groups = group_bar['Group'].unique().tolist()
+    selected_groups = st.multiselect(
+        "Choisissez les groupes à afficher :",
+        options=all_groups,
+        default=all_groups  # 기본값: 전체 그룹
+    )
+
+    # 선택된 그룹만 필터링
+    if selected_groups:
+        group_bar = group_bar[group_bar['Group'].isin(selected_groups)]
+
+    # 3) Wide → Long 변환
     group_bar_long = group_bar.melt(
         id_vars='Group',
         value_vars=['send_count', 'receive_count'],
@@ -152,7 +163,7 @@ if "Group" in merged_data.columns:
         value_name='Count'
     )
 
-    # 3) Altair grouped bar chart
+    # 4) Altair grouped bar chart
     chart_group = (
         alt.Chart(group_bar_long)
         .mark_bar()
@@ -168,4 +179,4 @@ if "Group" in merged_data.columns:
 
     st.altair_chart(chart_group, use_container_width=True)
 else:
-    st.warning("⚠️ Excel 데이터에 'Group' 컬럼이 없습니다. Group 컬럼명을 확인하세요.")
+    st.warning("no 'Group' on the Excel file.")
