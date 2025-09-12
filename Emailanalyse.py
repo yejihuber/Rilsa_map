@@ -92,7 +92,7 @@ bar_data = (
     .fillna({'send_count': 0, 'receive_count': 0})
 )
 
-# 2) Wide → Long 변환 (Altair grouped bar chart용)
+# 2) Wide → Long 변환
 bar_data_long = bar_data.melt(
     id_vars='Display Name_csv',
     value_vars=['send_count', 'receive_count'],
@@ -100,7 +100,7 @@ bar_data_long = bar_data.melt(
     value_name='Count'
 )
 
-# 3) Altair 시각화
+# 3) Altair grouped bar chart
 chart = (
     alt.Chart(bar_data_long)
     .mark_bar()
@@ -108,10 +108,10 @@ chart = (
         x=alt.X('Display Name_csv:N', sort='-y', title='Personne'),
         y=alt.Y('Count:Q', title="Nombre d'e-mails"),
         color=alt.Color('Type:N', title='Type'),
-        column=alt.Column('Type:N', title=None),  # 나란히 표시
+        xOffset='Type',   # send/receive를 옆으로 나란히
         tooltip=['Display Name_csv', 'Type', 'Count']
     )
-    .properties(height=500)
+    .properties(width=800, height=500)
 )
 
 st.altair_chart(chart, use_container_width=True)
