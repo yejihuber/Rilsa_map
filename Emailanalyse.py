@@ -79,6 +79,16 @@ merged_data = pd.merge(
 ).drop(columns=["_key"])
 
 # =========================
+# 병합 후 불필요한 데이터 제거
+# =========================
+if "Group" in merged_data.columns:
+    merged_data = merged_data[
+        merged_data["Group"].notna() & (merged_data["Group"] != "Compta")
+    ]
+else:
+    st.warning("no 'Group' on the Excel file.")
+
+# =========================
 # visualize data as bar chart : Send Count vs Receive Count par personne
 # =========================
 st.header("Charge e-mails par personne")
@@ -107,7 +117,7 @@ if selected_names:
 # 3) Wide → Long 변환
 bar_data_long = bar_data.melt(
     id_vars='Display Name_csv',
-    value_vars=['send_count', 'receive_count'],
+    value_vars=['Envoyé', 'Reçu'],
     var_name='Type',
     value_name='Count'
 )
@@ -158,7 +168,7 @@ if "Group" in merged_data.columns:
     # 3) Wide → Long 변환
     group_bar_long = group_bar.melt(
         id_vars='Group',
-        value_vars=['send_count', 'receive_count'],
+        value_vars=['Envoyé', 'Reçu'],
         var_name='Type',
         value_name='Count'
     )
