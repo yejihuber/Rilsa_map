@@ -85,7 +85,5 @@ bar_data = merged_data.groupby('Display Name_csv').agg(
     send_count=('Send Count', 'sum'),
     receive_count=('Receive Count', 'sum')
 ).reset_index()
-st.bar_chart(bar_data, x='Display Name_csv', y=['send_count', 'receive_count'])
-st.dataframe(bar_data)
-st.markdown("---")
+st.bar_chart(bar_data, x=['Display Name_csv'], y=['send_count', 'receive_count'])
 # =========================
