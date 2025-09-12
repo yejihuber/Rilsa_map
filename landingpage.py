@@ -7,8 +7,6 @@ st.set_page_config(
 
 st.write("# Welcome to RILSA Data analyse 👋")
 
-st.sidebar.success("Select a demo above.")
-
 st.markdown(
     """
     - [RILSA map](https://rilsamap.streamlit.app/)
