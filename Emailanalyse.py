@@ -43,7 +43,7 @@ data = pd.read_csv(csv_data, sep=',', encoding='utf-8')
 excel_df = pd.read_excel(excel_data, sheet_name=sheet_name)
 
 # fusion des deux dataframes sur la colonne 'Display Name'
-data = pd.merge(data, excel_df[['Display Name']], on='Display Name', how='left')
+data = pd.merge(data, excel_df, on='Display Name', how='left')
 
 # =========================
 # 메인 페이지 - 데이터 표시
