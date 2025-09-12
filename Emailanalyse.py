@@ -78,12 +78,27 @@ merged_data = pd.merge(
 ).drop(columns=["_key"])
 
 # =========================
-# visualize data as bar chart : Send Count and Receive Count par personne 
+# visualize data as bar chart : Send Count and Receive Count par personne
 # =========================
 st.header("1. charge email par personne")
-bar_data = merged_data.groupby('Display Name_csv').agg(
-    send_count=('Send Count', 'sum'),
-    receive_count=('Receive Count', 'sum')
-).reset_index()
-st.bar_chart(bar_data, x=['Display Name_csv'], y=['send_count', 'receive_count'])
-# =========================
+
+# 1) 집계 (이름별 합계)
+bar_data = (
+    merged_data
+    .groupby('Display Name_csv', as_index=False)
+    .agg(send_count=('Send Count', 'sum'),
+         receive_count=('Receive Count', 'sum'))
+    .fillna({'send_count': 0, 'receive_count': 0})
+)
+
+# 2) 보기 좋게 정렬 (받은 메일 수 기준 내림차순 예시)
+bar_data = bar_data.sort_values('receive_count', ascending=False)
+
+# 3) 스트림릿 차트 (x는 문자열 1개, y는 리스트)
+st.bar_chart(
+    bar_data,
+    x='Display Name_csv',
+    y=['send_count', 'receive_count'],
+    use_container_width=True
+)
+
