@@ -92,7 +92,19 @@ bar_data = (
     .fillna({'send_count': 0, 'receive_count': 0})
 )
 
-# 2) Wide → Long 변환
+# 2) 사람 선택 위젯
+all_names = bar_data['Display Name_csv'].unique().tolist()
+selected_names = st.multiselect(
+    "Choisissez les personnes à afficher :", 
+    options=all_names,
+    default=all_names[:10]  # 기본값: 처음 10명만 표시
+)
+
+# 선택된 사람만 필터링
+if selected_names:
+    bar_data = bar_data[bar_data['Display Name_csv'].isin(selected_names)]
+
+# 3) Wide → Long 변환
 bar_data_long = bar_data.melt(
     id_vars='Display Name_csv',
     value_vars=['send_count', 'receive_count'],
@@ -100,7 +112,7 @@ bar_data_long = bar_data.melt(
     value_name='Count'
 )
 
-# 3) Altair grouped bar chart
+# 4) Altair grouped bar chart
 chart = (
     alt.Chart(bar_data_long)
     .mark_bar()
@@ -108,7 +120,7 @@ chart = (
         x=alt.X('Display Name_csv:N', sort='-y', title='Personne'),
         y=alt.Y('Count:Q', title="Nombre d'e-mails"),
         color=alt.Color('Type:N', title='Type'),
-        xOffset='Type',   # send/receive를 옆으로 나란히
+        xOffset='Type',   # send/receive 나란히
         tooltip=['Display Name_csv', 'Type', 'Count']
     )
     .properties(width=800, height=500)
