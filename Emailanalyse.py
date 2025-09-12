@@ -168,7 +168,11 @@ if "Group" in merged_data.columns:
         .fillna({'envoyé': 0, 'reçu': 0})
     )
 
-    # 2) 그룹 선택 위젯 + 전체 선택 체크박스
+    # 2) 제외할 그룹 필터링
+    exclude_groups = ["Contentieux", "Direction", "Stagiaires", "marketing"]
+    group_bar = group_bar[~group_bar['Group'].isin(exclude_groups)]
+
+    # 3) 그룹 선택 위젯 + 전체 선택 체크박스
     all_groups = group_bar['Group'].unique().tolist()
 
     col1, col2 = st.columns([1, 4])
@@ -190,14 +194,14 @@ if "Group" in merged_data.columns:
                 key="group_multiselect"
             )
 
-    # 3) 선택된 그룹만 필터링
+    # 4) 선택된 그룹만 필터링
     if selected_groups:
         group_bar = group_bar[group_bar['Group'].isin(selected_groups)]
     else:
         st.info("Aucun groupe sélectionné.")
         st.stop()
 
-    # 4) Wide → Long 변환
+    # 5) Wide → Long 변환
     group_bar_long = group_bar.melt(
         id_vars='Group',
         value_vars=['envoyé', 'reçu'],
@@ -205,7 +209,7 @@ if "Group" in merged_data.columns:
         value_name='Nombre'
     )
 
-    # 5) Altair grouped bar chart (그룹별 envoyé/reçu 나란히)
+    # 6) Altair grouped bar chart
     chart_group = (
         alt.Chart(group_bar_long)
         .mark_bar()
