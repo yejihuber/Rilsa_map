@@ -79,11 +79,11 @@ merged_data = pd.merge(
 ).drop(columns=["_key"])
 
 # =========================
-# visualize data as bar chart : Send Count and Receive Count par personne
+# visualize data as bar chart : Send Count vs Receive Count par personne
 # =========================
-st.header("Charge email par personne")
+st.header("Charge e-mails par personne")
 
-# 1) 집계 (이름별 합계)
+# 1) 집계
 bar_data = (
     merged_data
     .groupby('Display Name_csv', as_index=False)
@@ -92,13 +92,26 @@ bar_data = (
     .fillna({'send_count': 0, 'receive_count': 0})
 )
 
-# 2) 보기 좋게 정렬 (받은 메일 수 기준 내림차순 예시)
-bar_data = bar_data.sort_values('receive_count', ascending=False)
-
-# 3) 스트림릿 차트 (x는 문자열 1개, y는 리스트)
-st.bar_chart(
-    bar_data,
-    x='Display Name_csv',
-    y=['send_count', 'receive_count'],
-    use_container_width=True
+# 2) Wide → Long 변환 (Altair grouped bar chart용)
+bar_data_long = bar_data.melt(
+    id_vars='Display Name_csv',
+    value_vars=['send_count', 'receive_count'],
+    var_name='Type',
+    value_name='Count'
 )
+
+# 3) Altair 시각화
+chart = (
+    alt.Chart(bar_data_long)
+    .mark_bar()
+    .encode(
+        x=alt.X('Display Name_csv:N', sort='-y', title='Personne'),
+        y=alt.Y('Count:Q', title="Nombre d'e-mails"),
+        color=alt.Color('Type:N', title='Type'),
+        column=alt.Column('Type:N', title=None),  # 나란히 표시
+        tooltip=['Display Name_csv', 'Type', 'Count']
+    )
+    .properties(height=500)
+)
+
+st.altair_chart(chart, use_container_width=True)
