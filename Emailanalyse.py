@@ -42,17 +42,19 @@ data = pd.read_csv(csv_data, sep=',', encoding='utf-8')
 # Excel 파일 읽기
 excel_df = pd.read_excel(excel_data, sheet_name=sheet_name)
 
-# fusion des deux dataframes sur la colonne 'Display Name'
-data = pd.merge(data, excel_df[['Display Name', 'Group']], on='Display Name', how='left')
+# to data frame
+df_excel = pd.DataFrame(excel_df)
+df_csv = pd.DataFrame(data)
+# merge two data frame on 'Display Name'
+df_merged = pd.merge(df_csv, df_excel, left_on='Display Name', right_on='Display Name', how='left')
 
 # =========================
-# 데이터프레임 출력
+# 메인 페이지 - 데이터 표시
 # =========================
 st.header("2. Data Overview")
-st.subheader("Raw Data")
-st.write(data)
-st.markdown("---")
-st.subheader("Data Summary")
-st.write(data.describe(include='all'))
-st.markdown("---")
-# =========================
+st.write("DataFrame from CSV file:")
+st.dataframe(df_csv)
+st.write("DataFrame from Excel file:")
+st.dataframe(df_excel)
+st.write("Merged DataFrame:")
+st.dataframe(df_merged)
