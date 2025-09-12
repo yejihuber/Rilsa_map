@@ -93,24 +93,42 @@ else:
 # =========================
 st.header("1. Charge e-mails par personne")
 
+# 1) 집계
 bar_data = (
     merged_data
     .groupby('Display Name_csv', as_index=False)
-    .agg(envoyé=('Send Count', 'sum'),
-         reçu=('Receive Count', 'sum'))
+    .agg({"Send Count": "sum", "Receive Count": "sum"})
+    .rename(columns={"Send Count": "envoyé", "Receive Count": "reçu"})
     .fillna({'envoyé': 0, 'reçu': 0})
 )
 
-# 사람 선택
+# 2) 모든 이름 리스트
 all_names = bar_data['Display Name_csv'].unique().tolist()
-selected_names = st.multiselect(
-    "Choisissez les personnes à afficher :",
-    options=all_names,
-    default=all_names[:10]
-)
+
+# 3) 전체 선택 버튼
+col1, col2 = st.columns([1,4])
+with col1:
+    select_all = st.checkbox("Tout sélectionner", value=True)
+
+# 4) multiselect
+with col2:
+    if select_all:
+        selected_names = st.multiselect(
+            "Choisissez les personnes à afficher :",
+            options=all_names,
+            default=all_names
+        )
+    else:
+        selected_names = st.multiselect(
+            "Choisissez les personnes à afficher :",
+            options=all_names
+        )
+
+# 5) 선택된 데이터만 필터링
 if selected_names:
     bar_data = bar_data[bar_data['Display Name_csv'].isin(selected_names)]
 
+# 6) Long 변환
 bar_data_long = bar_data.melt(
     id_vars='Display Name_csv',
     value_vars=['envoyé', 'reçu'],
@@ -118,6 +136,7 @@ bar_data_long = bar_data.melt(
     value_name='Nombre'
 )
 
+# 7) Altair grouped bar chart
 chart = (
     alt.Chart(bar_data_long)
     .mark_bar()
