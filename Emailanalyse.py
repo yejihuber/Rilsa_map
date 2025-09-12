@@ -131,7 +131,7 @@ if selected_names:
 # 6) Long 변환
 bar_data_long = bar_data.melt(
     id_vars='Display Name_csv',
-    value_vars=['envoyé', 'reçu'],
+    value_vars=["reçu", "envoyé"],
     var_name='Type',
     value_name='Nombre'
 )
@@ -204,7 +204,7 @@ if "Group" in merged_data.columns:
     # 5) Wide → Long 변환
     group_bar_long = group_bar.melt(
         id_vars='Group',
-        value_vars=['envoyé', 'reçu'],
+        value_vars=["reçu", "envoyé"],
         var_name='Type',
         value_name='Nombre'
     )
@@ -241,7 +241,7 @@ group_bar["Total"] = group_bar["envoyé"] + group_bar["reçu"]
 # Long 형식으로 변환
 group_bar_long3 = group_bar.melt(
     id_vars="Group",
-    value_vars=["envoyé", "reçu"],
+    value_vars=["reçu", "envoyé"],
     var_name="Type",
     value_name="Nombre"
 )
