@@ -10,6 +10,6 @@ st.write("# Welcome to RILSA Data analyse 👋")
 st.markdown(
     """
     - [RILSA map](https://rilsamap.streamlit.app/)
-    - [RILSA email data analyse](https://rilsaemail.streamlit.app/)
+    - [RILSA Email data analyse](https://rilsaemail.streamlit.app/)
 """
 )
