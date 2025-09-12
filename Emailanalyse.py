@@ -40,21 +40,15 @@ st.sidebar.markdown("---")
 data = pd.read_csv(csv_data, sep=',', encoding='utf-8')
 
 # Excel 파일 읽기
-excel_df = pd.read_excel(excel_data, sheet_name=sheet_name)
+xls = pd.ExcelFile(DEFAULT_EXCEL_PATH, engine="openpyxl")
+df_group = pd.read_excel(xls, sheet_name=sheet_name)
 
-# to data frame
-df_excel = pd.DataFrame(excel_df)
-df_csv = pd.DataFrame(data)
-# merge two data frame on 'Display Name'
-df_merged = pd.merge(df_csv, df_excel, left_on='Display Name', right_on='Display Name', how='left')
+# merge data and df_group on 'Display Name'
+data = pd.merge(data, df_group[['Display Name', 'Group']], on='Display Name', how='left')
 
 # =========================
-# 메인 페이지 - 데이터 표시
+# Show dataframe
 # =========================
 st.header("2. Data Overview")
-st.write("DataFrame from CSV file:")
-st.dataframe(df_csv)
-st.write("DataFrame from Excel file:")
-st.dataframe(df_excel)
-st.write("Merged DataFrame:")
-st.dataframe(df_merged)
+st.write(data)
+
